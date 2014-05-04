@@ -23,6 +23,7 @@ const BUILTINS = ['autobuilder',
                   'git-mirror',
                   'make',
                   'qa-make-disk',
+                  'prep-vagrant-disk',
                   'run-task',
                   'shell'];
 
