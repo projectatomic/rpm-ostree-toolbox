@@ -1,0 +1,80 @@
+# Copyright (C) 2011,2014 Colin Walters <walters@verbum.org>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+substitutions= \
+	-e s,@libdir\@,$(libdir), \
+	-e s,@pkglibdir\@,$(pkglibdir), \
+	-e s,@datarootdir\@,$(datarootdir), \
+	-e s,@pkgdatadir\@,$(pkgdatadir), \
+	$(NULL)
+
+rpm-ostree-toolbox: src/rpm-ostree-toolbox.in Makefile
+	sed $(substitutions) $< > $@.tmp && mv $@.tmp $@
+EXTRA_DIST += src/rpm-ostree-toolbox.in
+
+toolbox_privlibdir=$(libdir)/$(PACKAGE)
+toolbox_privlib_PROGRAMS = rpm-ostree-toolbox-builtin-console
+rpm_ostree_toolbox_builtin_console_SOURCES = src/rpm-ostree-toolbox-builtin-console.c
+rpm_ostree_toolbox_builtin_console_CFLAGS = $(AM_CFLAGS) $(PKGDEP_RPMOSTREE_CFLAGS)
+rpm_ostree_toolbox_builtin_console_LDADD = $(AM_LDFLAGS) $(PKGDEP_RPMOSTREE_LIBS) -lreadline
+
+toolbox_privlib_SCRIPTS = src/rpmqa-sorted 
+
+bin_SCRIPTS += rpm-ostree-toolbox \
+	$(NULL)
+
+jstoolboxdir=$(pkgdatadir)/js
+jstoolbox_DATA= \
+	src/js/argparse.js \
+	src/js/asyncutil.js \
+	src/js/buildutil.js \
+	src/js/builtin.js \
+	src/js/fileutil.js \
+	src/js/task.js \
+	src/js/jsonutil.js \
+	src/js/jsutil.js \
+	src/js/main.js \
+	src/js/libqa.js \
+	src/js/guestfish.js \
+	src/js/params.js \
+	src/js/procutil.js \
+	src/js/snapshot.js \
+	src/js/streamutil.js \
+	src/js/vcs.js \
+	src/js/versioneddir.js \
+	$(NULL)
+
+jsautobuiltinsdir=$(jstoolboxdir)/builtins
+jsautobuiltins_DATA= \
+	src/js/builtins/autobuilder.js \
+	src/js/builtins/git_mirror.js \
+	src/js/builtins/make.js \
+	src/js/builtins/qa_make_disk.js \
+	src/js/builtins/prep_vagrant_disk.js \
+	src/js/builtins/run_task.js \
+	src/js/builtins/shell.js \
+	$(NULL)
+
+jsautotasksdir=$(jstoolboxdir)/tasks
+jsautotasks_DATA= \
+	src/js/tasks/task-treecompose.js \
+	src/js/tasks/task-ensure-disk-caches.js \
+	src/js/tasks/task-repoweb.js \
+	src/js/tasks/task-smoketest.js \
+	src/js/tasks/task-zdisks.js \
+	src/js/tasks/testbase.js \
+	$(NULL)

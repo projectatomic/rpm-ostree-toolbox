@@ -28,4 +28,4 @@ AM_CFLAGS += $(WARN_CFLAGS)
 
 EXTRA_DIST += autogen.sh COPYING
 
-include Makefile-autobuilder.am
+include Makefile-toolbox.am

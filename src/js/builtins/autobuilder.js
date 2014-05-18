@@ -32,7 +32,7 @@ const Autobuilder = new Lang.Class({
     Name: 'Autobuilder',
     Extends: Builtin.Builtin,
 
-    DESCRIPTION: "Trigger builds every 3 hours",
+    DESCRIPTION: "Trigger tree composes every hour",
 
     _init: function() {
 	this.parent();
@@ -42,11 +42,13 @@ const Autobuilder = new Lang.Class({
 	this._fullResolveNeeded = true;
 	this._resolveTimeout = 0;
 	this._resolveSrcUrls = [];
+
+        this.parser.addArgument('treefiles', { nargs: '*' });
     },
 
     execute: function(args, loop, cancellable) {
 	this._initWorkdir(null, cancellable);
-
+	
         this._buildsDir = new VersionedDir.VersionedDir(this.workdir.get_child('builds'));
 
         this._resultsDir = this.workdir.get_child('results');
@@ -274,6 +276,10 @@ const Autobuilder = new Lang.Class({
 
     _triggerTreeCompose: function() {
 	let cancellable = null;
+
+	let treefiles = this.args.treefiles;
+	for (let i = 0; i < treefiles.length; i++) {
+	}
 	
 	if (this._taskmaster.isTaskQueued('treecompose'))
 	    return true;

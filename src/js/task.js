@@ -114,9 +114,9 @@ const TaskSet = new Lang.Class({
 const TaskData = new Lang.Class({
     Name: 'TaskData',
 
-    _init: function(taskDef, parameters) {
-	this.name = taskDef.TaskName;
+    _init: function(taskDef, name, parameters) {
 	this.taskDef = taskDef;
+	this.name = name;
 	this.parameters = parameters;
     },
 });
@@ -171,11 +171,19 @@ const TaskMaster = new Lang.Class({
         this._pushTask(taskName, parameters, pushParams);
     },
 
-    _pushTask: function(name, parameters, pushParams) {
-	let taskDef = this._taskset.getTaskDef(name);
-        let taskData = new TaskData(taskDef, parameters);
-	pushParams = Params.parse(pushParams, { force: false });
-	if (!this._isTaskPending(name)) {
+    _pushTask: function(taskName, parameters, pushParams) {
+	pushParams = Params.parse(pushParams, {force: false });
+	let parts = taskName.split(':');
+	let taskDefName;
+	if (parts.length == 0)
+	    taskDefName = taskName;
+	else if (parts.length == 1)
+	    taskDefName = parts[0];
+	else
+	    throw new Error("Invalid task name: " + taskName);
+	let taskDef = this._taskset.getTaskDef(taskDefName);
+        let taskData = new TaskData(taskDef, taskName, parameters);
+	if (!this._isTaskPending(taskName)) {
 	    let scheduleMinSecs = taskDef.TaskScheduleMinSecs;
 	    if (!pushParams.force && scheduleMinSecs > 0) {
 		let info = this._scheduledTaskTimeouts[name];

@@ -1,11 +1,15 @@
-rpm-ostree-autocompose
-======================
+rpm-ostree-toolbox
+==================
 
-This is a higher level app on top of the core `rpm-ostree` tool.
-It is designed to run as a Docker service, automatically doing
-composes based on input.
+This is a higher level app on top of the core `rpm-ostree` tool.  It
+contains a variety of tools and scripts for making disk images and
+such.
 
-Using rpm-ostree-autocompose
-----------------------------
+Running a tool
+--------------
 
-TODO.
+Here's an example command, where /srv/rpm-ostree holds an OSTree
+repository named "repo".
+
+$ docker run --privileged -v /srv/rpm-ostree:/srv/rpm-ostree cgwalters/rpm-ostree-toolbox rpm-ostree-toolbox qa-make-disk /srv/rpm-ostree/repo fedora-atomic-host fedora-atomic-host/rawhide/x86_64/base /srv/rpm-ostree/fedora-atomic-host.qcow2
+

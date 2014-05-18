@@ -55,16 +55,14 @@ if (ARGV.length > 0 && (ARGV[0] == '-h' || ARGV[0] == '--help')) {
     ecode = usage(0);
 } else {
     let name;
-    if (ARGV.length < 1) {
-	name = "autobuilder";
-    } else {
-	name = ARGV[0];
-    }
     let found = false;
-    for (let i = 0; i < BUILTINS.length; i++) {
-	if (BUILTINS[i] == name) {
-	    found = true;
-	    break;
+    if (ARGV.length >= 1) {
+	name = ARGV[0];
+	for (let i = 0; i < BUILTINS.length; i++) {
+	    if (BUILTINS[i] == name) {
+		found = true;
+		break;
+	    }
 	}
     }
     if (!found) {
