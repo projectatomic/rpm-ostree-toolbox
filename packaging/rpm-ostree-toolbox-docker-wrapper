@@ -1,0 +1,2 @@
+#!/bin/sh
+exec env LIBGUESTFS_BACKEND=direct SUPERMIN_KERNEL=$(cd /boot/ && echo vmlinuz-* | head -1) /usr/bin/rpm-ostree-toolbox.real "$@"
