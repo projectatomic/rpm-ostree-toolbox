@@ -19,12 +19,10 @@ const GLib = imports.gi.GLib;
 
 const Format = imports.format;
 
-const BUILTINS = ['autobuilder',
-                  'git-mirror',
-                  'make',
+const BUILTINS = [
                   'qa-make-disk',
                   'prep-vagrant-disk',
-                  'run-task',
+                  'repoweb',
                   'shell'];
 
 function getModule(unixName) {
