@@ -51,9 +51,7 @@ jstoolbox_DATA= \
 	src/js/guestfish.js \
 	src/js/params.js \
 	src/js/procutil.js \
-	src/js/snapshot.js \
 	src/js/streamutil.js \
-	src/js/vcs.js \
 	src/js/versioneddir.js \
 	$(NULL)
 

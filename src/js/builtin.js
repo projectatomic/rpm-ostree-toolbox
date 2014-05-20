@@ -24,7 +24,6 @@ const GSystem = imports.gi.GSystem;
 const Params = imports.params;
 const JsonUtil = imports.jsonutil;
 const ArgParse = imports.argparse;
-const Snapshot = imports.snapshot;
 const BuildUtil = imports.buildutil;
 
 const Builtin = new Lang.Class({
@@ -52,12 +51,6 @@ const Builtin = new Lang.Class({
 	this.mirrordir = workdir.get_child('src');
 	GSystem.file_ensure_directory(this.mirrordir, true, cancellable);
 	this.patchdir = this.workdir.get_child('patches');
-    },
-
-    _initSnapshot: function(workdir, snapshotPath, cancellable) {
-	this._initWorkdir(workdir, cancellable);
-	let path = Gio.File.new_for_path(snapshotPath);
-	this._snapshot = Snapshot.fromFile(path, cancellable);
     },
 
     main: function(argv, loop, cancellable) {
