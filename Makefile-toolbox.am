@@ -44,7 +44,6 @@ jstoolbox_DATA= \
 	src/js/buildutil.js \
 	src/js/builtin.js \
 	src/js/fileutil.js \
-	src/js/task.js \
 	src/js/jsonutil.js \
 	src/js/jsutil.js \
 	src/js/main.js \
@@ -64,13 +63,4 @@ jsautobuiltins_DATA= \
 	src/js/builtins/prep_vagrant_disk.js \
 	src/js/builtins/repoweb.js \
 	src/js/builtins/shell.js \
-	$(NULL)
-
-jsautotasksdir=$(jstoolboxdir)/tasks
-jsautotasks_DATA= \
-	src/js/tasks/task-treecompose.js \
-	src/js/tasks/task-ensure-disk-caches.js \
-	src/js/tasks/task-smoketest.js \
-	src/js/tasks/task-zdisks.js \
-	src/js/tasks/testbase.js \
 	$(NULL)
