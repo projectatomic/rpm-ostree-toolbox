@@ -36,23 +36,6 @@ const Builtin = new Lang.Class({
 	this._workdirInitialized = false;
     },
 
-    _initWorkdir: function(workdir, cancellable) {
-	if (this._workdirInitialized)
-	    return;
-	this._workdirInitialized = true;
-	if (workdir === null)
-	    workdir = Gio.File.new_for_path('.');
-	else if (typeof(workdir) == 'string')
-	    workdir = Gio.File.new_for_path(workdir);
-
-	BuildUtil.checkIsWorkDirectory(workdir);
-
-	this.workdir = workdir;
-	this.mirrordir = workdir.get_child('src');
-	GSystem.file_ensure_directory(this.mirrordir, true, cancellable);
-	this.patchdir = this.workdir.get_child('patches');
-    },
-
     main: function(argv, loop, cancellable) {
 	let args = this.parser.parse(argv);
 	this.execute(args, loop, cancellable);
