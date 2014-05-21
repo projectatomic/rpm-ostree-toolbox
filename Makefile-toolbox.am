@@ -27,10 +27,6 @@ rpm-ostree-toolbox: src/rpm-ostree-toolbox.in Makefile
 EXTRA_DIST += src/rpm-ostree-toolbox.in
 
 toolbox_privlibdir=$(libdir)/$(PACKAGE)
-toolbox_privlib_PROGRAMS = rpm-ostree-toolbox-builtin-console
-rpm_ostree_toolbox_builtin_console_SOURCES = src/rpm-ostree-toolbox-builtin-console.c
-rpm_ostree_toolbox_builtin_console_CFLAGS = $(AM_CFLAGS) $(PKGDEP_RPMOSTREE_CFLAGS)
-rpm_ostree_toolbox_builtin_console_LDADD = $(AM_LDFLAGS) $(PKGDEP_RPMOSTREE_LIBS) -lreadline
 
 toolbox_privlib_SCRIPTS = src/rpmqa-sorted 
 
