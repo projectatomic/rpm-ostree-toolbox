@@ -54,7 +54,8 @@ const CreateVmDisk = new Lang.Class({
         let tmppath = path.get_parent().get_child(path.get_basename() + '.tmp');
         GSystem.shutil_rm_rf(tmppath, cancellable);
         LibQA.createDisk(tmppath, cancellable);
-        let mntdir = Gio.File.new_for_path('mnt');
+        let tmpdir = Gio.File.new_for_path(GLib.dir_make_tmp('rpmostreetoolbox.XXXXXX'));
+        let mntdir = tmpdir.get_child('mnt');
         GSystem.file_ensure_directory(mntdir, true, cancellable);
         let gfmnt = new GuestFish.GuestMount(tmppath, { partitionOpts: LibQA.DEFAULT_GF_PARTITION_OPTS,
                                                             readWrite: true });
@@ -74,6 +75,7 @@ const CreateVmDisk = new Lang.Class({
             gfmnt.umount(cancellable);
         }
         GSystem.file_rename(tmppath, path, cancellable);
+        GSystem.shutil_rm_rf(tmpdir, cancellable);
         print("Created: " + path.get_path());
     }
 });
