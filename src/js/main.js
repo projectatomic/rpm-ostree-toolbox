@@ -20,7 +20,7 @@ const GLib = imports.gi.GLib;
 const Format = imports.format;
 
 const BUILTINS = [
-                  'qa-make-disk',
+                  'create-vm-disk',
                   'prep-vagrant-disk',
                   'repoweb',
                   'shell'];

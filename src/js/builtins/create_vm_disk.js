@@ -30,11 +30,11 @@ const ProcUtil = imports.procutil;
 const LibQA = imports.libqa;
 const GuestFish = imports.guestfish;
 
-const QaMakeDisk = new Lang.Class({
-    Name: 'QaMakeDisk',
+const CreateVmDisk = new Lang.Class({
+    Name: 'CreateVmDisk',
     Extends: Builtin.Builtin,
 
-    DESCRIPTION: "Generate a disk image",
+    DESCRIPTION: "Generate a qcow2 disk image",
 
     _init: function() {
         this.parent();
