@@ -55,39 +55,11 @@ const PrepCloudDisk = new Lang.Class({
             let deployment = deployments[0];
             let deployDir = sysroot.get_deployment_directory(deployment);
 
-            let doCloudPrepData = '#!/bin/bash\n\
-set -e\n\
-set -x\n\
-if ! getent passwd vagrant 1>/dev/null; then useradd vagrant; fi\n\
-echo "vagrant" | passwd --stdin vagrant\n\
-if ! groups vagrant | grep wheel; then usermod -a -G wheel vagrant; fi\n\
-sed -i \'s,Defaults\\s*requiretty,Defaults !requiretty,\' /etc/sudoers\n\
-echo \'%wheel ALL=NOPASSWD: ALL\' > /etc/sudoers.d/vagrant-nopasswd-wheel\n\
-sed -i \'s/.*UseDNS.*/UseDNS no/\' /etc/ssh/sshd_config\n\
-mkdir -m 0700 -p ~vagrant/.ssh\n\
-cat > ~vagrant/.ssh/authorized_keys << EOF\n\
-ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzIw+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoPkcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2hMNG0zQPyUecp4pzC6kivAIhyfHilFR61RGL+GPXQ2MWZWFYbAGjyiYJnAmCP3NOTd0jMZEnDkbUvxhMmBYSdETk1rRgm+R4LOzFUGaHqHDLKLX+FIPKcF96hrucXzcWyLbIbEgE98OHlnVYCzRdK8jlqm8tehUc9c9WhQ== vagrant insecure public key\n\
-EOF\n\
-chmod 600 ~vagrant/.ssh/authorized_keys\n\
-chown -R vagrant:vagrant ~vagrant/.ssh/\n\
-touch /var/completed-vagrant-prep\n\
-';
-            let execPath = deployDir.resolve_relative_path('usr/libexec/do-vagrant-prep');
-            execPath.replace_contents(doVagrantPrepData, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
-            GSystem.file_chmod(execPath, 493, cancellable);
+            let agentSvcName = 'min-cloud-agent.service';
 
-            let doVagrantPrepPath = deployDir.resolve_relative_path('usr/libexec/do-vagrant-prep');
-
-            let doVagrantPrepServiceData = '[Unit]\n\
-Description=Initialize vagrant\n\
-Before=sshd.service\n\
-ConditionPathExists=!/var/completed-vagrant-prep\n\
-[Service]\n\
-ExecStart=/usr/libexec/do-vagrant-prep\n\
-Type=oneshot\n';
-            let serviceRelpath = 'usr/lib/systemd/system/do-vagrant-prep.service';
-            deployDir.resolve_relative_path(serviceRelpath).replace_contents(doVagrantPrepServiceData, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
-            deployDir.resolve_relative_path('etc/systemd/system/multi-user.target.wants/do-vagrant-prep.service').make_symbolic_link('/' + serviceRelpath, cancellable);
+            let serviceRelpath = 'usr/lib/systemd/system/' + agentSvcName;
+            let multiUserWantsPath = 'etc/systemd/system/multi-user.target.wants/' + agentSvcName;
+            deployDir.resolve_relative_path(multiUserWantsPath).make_symbolic_link('/' + serviceRelpath, cancellable);
         } finally {
             gfmnt.umount(cancellable);
         }

@@ -54,6 +54,7 @@ jstoolbox_DATA= \
 jsautobuiltinsdir=$(jstoolboxdir)/builtins
 jsautobuiltins_DATA= \
 	src/js/builtins/create_vm_disk.js \
+	src/js/builtins/prep_cloud_disk.js \
 	src/js/builtins/prep_vagrant_disk.js \
 	src/js/builtins/repoweb.js \
 	src/js/builtins/shell.js \
