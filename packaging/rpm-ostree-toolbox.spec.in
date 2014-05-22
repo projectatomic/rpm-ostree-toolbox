@@ -1,4 +1,4 @@
-Summary: Commit RPMs to an OSTree repository
+Summary: Extra tools for rpm-ostree
 Name: rpm-ostree-toolbox
 Version: 2014.1
 Release: 1%{?dist}
@@ -6,7 +6,7 @@ Release: 1%{?dist}
 # This tarball is generated via "make -f Makefile.dist-packaging dist-snapshot"
 Source0: %{name}-%{version}.tar.xz
 License: LGPLv2+
-URL: https://github.com/cgwalters/rpm-ostree
+URL: https://github.com/cgwalters/rpm-ostree-toolbox
 # We always run autogen.sh
 BuildRequires: autoconf automake libtool
 # For docs
@@ -21,8 +21,10 @@ Requires: /usr/bin/gjs
 Requires: /usr/bin/guestmount
 Requires: libguestfs-gobject
 Requires: kernel
-# Should be a dep of libguestfs probably
+%if 0%{?rhel}
+%else
 Requires: libguestfs-xfs
+%endif
 
 %description
 Various utilities and scripts for working with rpm-ostree based
