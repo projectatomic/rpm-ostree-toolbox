@@ -92,6 +92,8 @@ Type=oneshot\n';
             let linkTarget = deployDir.resolve_relative_path('etc/systemd/system/multi-user.target.wants/do-vagrant-prep.service');
             linkTarget.make_symbolic_link('/' + serviceRelpath, cancellable);
             print("Created " + linkTarget.get_path());
+
+            ProcUtil.runSync(['ostree', 'admin', 'instutil', 'selinux-ensure-labeled', mntdir.get_path(), ""], cancellable, { logInitiation: true });
         } finally {
             gfmnt.umount(cancellable);
         }
