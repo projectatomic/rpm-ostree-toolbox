@@ -118,8 +118,27 @@ const GuestMount = new Lang.Class({
 	if (!this._mounted)
 	    return;
 
+	let ctx = GLib.MainContext.new();
+	ctx.push_thread_default();
+
+	let running = true;
+
+	let monitor = this._mountPidFile.monitor_file(0, cancellable);
+	monitor.connect('changed', function(monitor, file, other, eventType) {
+	    if (eventType == Gio.FileMonitorEvent.DELETED) {
+		print("guestmount pid file successfully deleted");
+		running = false;
+	    }
+	});
+
 	ProcUtil.runSync(['guestunmount', '-v', this._mntdir.get_path()], cancellable,
 			 { logInitiation: true });
+	
+	print("Awaiting termination of guestmount, watching: " + this._mountPidFile.get_path());
+	while (running)
+	    ctx.iteration(true);
+
+	ctx.pop_thread_default();
 	
 	this._mounted = false;
 	this._unlock();
