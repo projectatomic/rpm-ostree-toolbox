@@ -62,7 +62,7 @@ const PrepCloudDisk = new Lang.Class({
             let multiUserWantsPath = 'etc/systemd/system/multi-user.target.wants/' + agentSvcName;
             deployDir.resolve_relative_path(multiUserWantsPath).make_symbolic_link('/' + serviceRelpath, cancellable);
 
-            ProcUtil.runSync(['ostree', 'admin', 'instutil', 'selinux-ensure-labeled', mntdir.get_path(), ""], cancellable, { logInitiation: true });
+            ProcUtil.runSync(['ostree', 'admin', '--sysroot=' + mntdir.get_path(), 'instutil', 'selinux-ensure-labeled'], cancellable, { logInitiation: true });
         } finally {
             gfmnt.umount(cancellable);
         }
