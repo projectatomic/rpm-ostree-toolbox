@@ -118,7 +118,7 @@ const GuestMount = new Lang.Class({
 	if (!this._mounted)
 	    return;
 
-	ProcUtil.runSync(['guestunmount', this._mntdir.get_path()], cancellable,
+	ProcUtil.runSync(['guestunmount', '-v', this._mntdir.get_path()], cancellable,
 			 { logInitiation: true });
 	
 	this._mounted = false;
