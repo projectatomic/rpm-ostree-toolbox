@@ -75,6 +75,7 @@ touch /var/completed-vagrant-prep\n\
             let execPath = deployDir.resolve_relative_path('usr/libexec/do-vagrant-prep');
             execPath.replace_contents(doVagrantPrepData, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
             GSystem.file_chmod(execPath, 493, cancellable);
+            print("Created " + execPath.get_path());
 
             let doVagrantPrepPath = deployDir.resolve_relative_path('usr/libexec/do-vagrant-prep');
 
@@ -87,7 +88,9 @@ ExecStart=/usr/libexec/do-vagrant-prep\n\
 Type=oneshot\n';
             let serviceRelpath = 'usr/lib/systemd/system/do-vagrant-prep.service';
             deployDir.resolve_relative_path(serviceRelpath).replace_contents(doVagrantPrepServiceData, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
-            deployDir.resolve_relative_path('etc/systemd/system/multi-user.target.wants/do-vagrant-prep.service').make_symbolic_link('/' + serviceRelpath, cancellable);
+            let linkTarget = deployDir.resolve_relative_path('etc/systemd/system/multi-user.target.wants/do-vagrant-prep.service');
+            linkTarget.make_symbolic_link('/' + serviceRelpath, cancellable);
+            print("Created " + linkTarget.get_path());
         } finally {
             gfmnt.umount(cancellable);
         }
