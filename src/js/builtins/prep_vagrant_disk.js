@@ -42,7 +42,8 @@ const PrepVagrantDisk = new Lang.Class({
     },
 
     execute: function(args, loop, cancellable) {
-        let mntdir = Gio.File.new_for_path('mnt');
+        let tmpdir = Gio.File.new_for_path(GLib.dir_make_tmp('rpmostreetoolbox.XXXXXX'));
+        let mntdir = tmpdir.get_child('mnt');
         GSystem.file_ensure_directory(mntdir, true, cancellable);
         let gfmnt = new GuestFish.GuestMount(Gio.File.new_for_path(args.diskpath),
                                              { partitionOpts: LibQA.DEFAULT_GF_PARTITION_OPTS,
