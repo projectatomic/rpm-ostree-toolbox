@@ -118,62 +118,9 @@ const GuestMount = new Lang.Class({
 	if (!this._mounted)
 	    return;
 
-        let pidStr = GSystem.file_load_contents_utf8(this._mountPidFile, cancellable);
-        if (pidStr.length == 0) {
-	    this._mounted = false;
-	    return;
-	}
-
-        for (let i = 0; i < 30; i++) {
-            // See "man guestmount" for why retry loops here might be needed if this
-            // script is running on a client machine with programs that watch for new mounts
-            try {
-                ProcUtil.runSync(['fusermount', '-u', this._mntdir.get_path()], cancellable,
-                                 {logInitiation: true});
-                break;
-            } catch (e) {
-                if (!(e.origError && e.origError.domain == GLib.spawn_exit_error_quark()))
-                    throw e;
-                else {
-                    let proc = GSystem.Subprocess.new_simple_argv(['fuser', '-m', this._mntdir.get_path()],
-                                                                  GSystem.SubprocessStreamDisposition.INHERIT,
-                                                                  GSystem.SubprocessStreamDisposition.INHERIT,
-                                                                  cancellable);
-                    proc.init(cancellable);
-                    proc.wait_sync(cancellable);
-                    let creds = new Gio.Credentials();
-                    proc = GSystem.Subprocess.new_simple_argv(['ls', '-al', '/proc/' + creds.get_unix_pid() + '/fd'],
-                                                              GSystem.SubprocessStreamDisposition.INHERIT,
-                                                              GSystem.SubprocessStreamDisposition.INHERIT,
-                                                              cancellable);
-                    proc.init(cancellable);
-                    proc.wait_sync(cancellable);
-                    
-                    GLib.usleep(GLib.USEC_PER_SEC);
-                }
-            }
-        }
-
-        let pid = parseInt(pidStr);
-	let guestfishExited = false;
-	let guestfishTimeoutSecs = 5 * 60;
-        for (let i = 0; i < guestfishTimeoutSecs; i++) {
-            let killContext = new GSystem.SubprocessContext({argv: ['kill', '-0', ''+pid]});
-            killContext.set_stderr_disposition(GSystem.SubprocessStreamDisposition.NULL);
-            let killProc = new GSystem.Subprocess({context: killContext});
-            killProc.init(null);
-            let [waitSuccess, ecode] = killProc.wait_sync(null);
-            let [killSuccess, statusStr] = ProcUtil.getExitStatusAndString(ecode);
-            if (killSuccess) {
-                print("Awaiting termination of guestfish, pid=" + pid + " timeout=" + (guestfishTimeoutSecs - i) + "s");
-                GLib.usleep(GLib.USEC_PER_SEC);
-            } else {
-		guestfishExited = true;
-                break;
-            }
-        }
-	if (!guestfishExited)
-	    throw new Error("guestfish failed to exit");
+	ProcUtil.runSync(['guestunmount', this._mntdir.get_path()], cancellable,
+			 { logInitiation: true });
+	
 	this._mounted = false;
 	this._unlock();
     },
