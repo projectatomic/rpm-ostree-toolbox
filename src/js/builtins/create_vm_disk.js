@@ -45,6 +45,12 @@ const CreateVmDisk = new Lang.Class({
     },
 
     execute: function(args, loop, cancellable) {
+
+        let enforcing = ProcUtil.runSyncGetOutputUTF8Stripped(['getenforce'], cancellable);
+        if (enforcing != 'Disabled') {
+            throw new Error("SELinux must be disabled; see https://bugzilla.redhat.com/show_bug.cgi?id=1060423");
+        }
+
         let repoPath = Gio.File.new_for_path(args.repo);
         let repo = new OSTree.Repo({ path: repoPath });
         let [,rev] = repo.resolve_rev(args.ref, false);
