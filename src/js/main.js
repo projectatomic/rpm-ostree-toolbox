@@ -20,11 +20,13 @@ const GLib = imports.gi.GLib;
 const Format = imports.format;
 
 const BUILTINS = [
-                  'create-vm-disk',
-                  'prep-vagrant-disk',
-                  'prep-cloud-disk',
-                  'repoweb',
-                  'shell'];
+    'create-vm-disk',
+    'prep-vagrant-disk',
+    'prep-cloud-disk',
+    'repoweb',
+    'shell',
+    'trivial-autocompose',
+    'internal-trivial-autocompose-create-disk'];
 
 function getModule(unixName) {
     return imports.builtins[unixName.replace(/-/g, '_')];
@@ -43,6 +45,8 @@ function usage(ecode) {
     print("Builtins:");
     for (let i = 0; i < BUILTINS.length; i++) {
 	let unixName = BUILTINS[i];
+	if (unixName.indexOf('internal-') == 0)
+	    continue;
 	let description = getClass(unixName).prototype.DESCRIPTION;
         print(Format.vprintf("    %s - %s", [unixName, description]));
     }
