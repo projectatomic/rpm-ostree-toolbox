@@ -1,0 +1,105 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.2//EN"
+"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+
+<!--
+Copyright 2011,2013,2014 Colin Walters <walters@verbum.org>
+
+This library is free software; you can redistribute it and/or
+modify it under the terms of the GNU Lesser General Public
+License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
+
+This library is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Lesser General Public License for more details.
+
+You should have received a copy of the GNU Lesser General Public
+License along with this library; if not, write to the
+Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+Boston, MA 02111-1307, USA.
+-->
+
+<refentry id="rpm-ostree-toolbox">
+
+  <refentryinfo>
+    <title>rpm-ostree-toolbox</title>
+    <productname>rpm-ostree-toolbox</productname>
+
+    <authorgroup>
+      <author>
+        <contrib>Developer</contrib>
+        <firstname>Colin</firstname>
+        <surname>Walters</surname>
+        <email>walters@redhat.com</email>
+      </author>
+    </authorgroup>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>rpm-ostree-toolbox</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>rpm-ostree-toolbox</refname>
+    <refpurpose>Set of utilities for rpm-ostree composing</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>rpm-ostree-toolbox <arg choice="req">COMMAND</arg> <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>
+      rpm-ostree-toolbox contains a set of utilities that use the core
+      <literal>rpm-ostree</literal>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>create-vm-disk</command></term>
+
+        <listitem><para>Takes a given ref from an OSTree repository,
+        and creates a <literal>.qcow2</literal> formatted disk image
+        from it.  This uses <literal>libguestfs</literal> to create a
+        FUSE mount, and then data is copied into the disk.  At the
+        moment, the partition layout and image size are completely
+        fixed.  This utility is intended primarily for testing and
+        creating VM images with simple layouts, such as cloud images.
+        </para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>repoweb</command></term>
+	
+	<listitem><para>The core OSTree data format is designed to be
+	served by a static webserver, but it's binary and not easily
+	parsable via JavaScript in web pages.  This tool creates a
+	cache of JSON formatted files for the repository that can be
+	easily read by client-side JavaScript.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>rpm-ostree</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>rpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

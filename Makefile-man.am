@@ -15,18 +15,18 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-include Makefile-decls.am
-include Makefile-man.am
+man1_MANS = rpm-ostree-toolbox.1
 
-privdatadir=$(pkglibdir)
+XSLTPROC_FLAGS = \
+        --nonet \
+        --stringparam man.output.quietly 1 \
+        --stringparam funcsynopsis.style ansi \
+        --stringparam man.th.extra1.suppress 1 \
+        --stringparam man.authors.section.enabled 0 \
+        --stringparam man.copyright.section.enabled 0
 
-ACLOCAL_AMFLAGS += -I m4 ${ACLOCAL_FLAGS}
-AM_CPPFLAGS += -DDATADIR='"$(datadir)"' \
-	-DLIBEXECDIR='"$(libexecdir)"' \
-	-DLOCALEDIR=\"$(datadir)/locale\" \
-	-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_36 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_36
-AM_CFLAGS += $(WARN_CFLAGS)
+XSLTPROC_FLAGS_MAN = \
+	$(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl
 
-EXTRA_DIST += autogen.sh COPYING
-
-include Makefile-toolbox.am
+rpm-ostree-toolbox.1: man/rpm-ostree-toolbox.xml Makefile
+	$(AM_V_GEN) $(XSLTPROC) $(XSLTPROC_FLAGS_MAN) $<
