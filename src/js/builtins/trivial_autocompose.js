@@ -81,32 +81,35 @@ const TrivialAutocompose = new Lang.Class({
 	loop.run();
     },
 
-    _processTaskSet: function(taskSet) {
+    _checkTaskSetDone: function(taskSet) {
 	let allDone = true;
+	let success = true;
 	for (let othertf in taskSet) {
 	    let task = taskSet[othertf];
 	    if (task.proc != null) {
 		allDone = false;
 		break;
 	    }
+	    if (!task.success)
+		success = false;
 	}
-
-	let changed = false;
-	if (allDone) {
-	    for (let tf in taskSet) {
-		let task = taskSet[tf];
-		if (task === null)
-		    continue;
-		if (task.changed)
-		    changed = true;
-		taskSet[tf] = null;
-	    }
-	}
-	
-	return [allDone, changed];
+	return [allDone, success];
     },
 
-    _readSwappedLink: function(path) {
+    _clearTaskSet: function(taskSet) {
+	let changed = false;
+	for (let tf in taskSet) {
+	    let task = taskSet[tf];
+	    if (task === null)
+		continue;
+	    if (task.changed)
+		changed = true;
+	    taskSet[tf] = null;
+	}
+	return changed;
+    },
+
+    _readSwappedLink: function(path, cancellable) {
 	let currentInfo = null;
 	try {
             currentInfo = path.query_info('standard::symlink-target', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, cancellable);
@@ -148,24 +151,33 @@ const TrivialAutocompose = new Lang.Class({
 	task.proc = null;
 	task.success = success;
 
-	let [allDone, changed] = this._processTaskSet(this._imageTasks);
+	let [allDone, success] = this._checkTaskSetDone(this._imageTasks);
 
 	if (allDone) {
-	    print("Image creation " + this._imagesVersion + " complete");
-	    let imagesAutolink = this._workdir.resolve_relative_path('images/auto');
-	    let imagesAutoCurrentVersion = this._readSwappedLink(imagesAutolink);
-	    let imagesAutoNewVersion = imagesAutoCurrentVersion == 1 ? 0 : 1;
-	    let imagesCurrentDir = this._workdir.resolve_relative_path('images/auto.' + imagesAutoCurrentVersion);
-	    let imagesTmpDir = this._workdir.resolve_relative_path('images/auto.' + imagesAutoNewVersion);
-	    
-	    for (let tf in this._imageTasks) {
-		let task = this._imageTasks[tf];
-		let targetResultdir = imagesTmpDir.get_child(task.name);
-		print("Renaming " + task.resultdir.get_path() + " => " + targetResultdir.get_path());
-		GSystem.file_rename(task.resultdir, targetResultdir, null);
+	    if (success) {
+		print("Image creation " + this._imagesVersion + " complete");
+		let imagesAutolink = this._workdir.resolve_relative_path('images/auto');
+		let imagesAutoCurrentVersion = this._readSwappedLink(imagesAutolink, cancellable);
+		let imagesAutoNewVersion = imagesAutoCurrentVersion == 1 ? 0 : 1;
+		let imagesCurrentDir = this._workdir.resolve_relative_path('images/auto.' + imagesAutoCurrentVersion);
+		let imagesTmpDir = this._workdir.resolve_relative_path('images/auto.' + imagesAutoNewVersion);
+
+		GSystem.shutil_rm_rf(imagesTmpDir, cancellable);
+		GSystem.file_ensure_directory(imagesTmpDir, true, cancellable);
+		
+		for (let tf in this._imageTasks) {
+		    let task = this._imageTasks[tf];
+		    if (task === null)
+			continue;
+		    let targetResultdir = imagesTmpDir.get_child(task.name);
+		    GSystem.file_ensure_directory(targetResultdir.get_parent(), true, cancellable);
+		    print("Renaming " + task.resultdir.get_path() + " => " + targetResultdir.get_path());
+		    GSystem.file_rename(task.resultdir, targetResultdir, null);
+		}
+		
+		this._atomicSymlinkSwap(imagesAutolink, imagesTmpDir, cancellable); 
 	    }
-	    
-	    this._atomicSymlinkSwap(imagesAutolink, imagesTmpDir, cancellable); 
+	    this._clearTaskSet(this._imageTasks);
 	}
     },
 
@@ -260,22 +272,24 @@ const TrivialAutocompose = new Lang.Class({
 	task.proc = null;
 	task.success = success;
 
-	let [,rev] = this._repo.resolve_rev(task.treefile.ref, true);
-	if (rev != task.rev) {
-	    print("Compose of " + task.treefile.ref + " is now " + rev);
-	    task.changed = true;
-	    task.rev = rev;
-	} else {
-	    print("Compose of " + task.treefile.ref + " is unchanged");
+	if (success) {
+	    let [,rev] = this._repo.resolve_rev(task.treefile.ref, true);
+	    if (rev != task.rev) {
+		print("Compose of " + task.treefile.ref + " is now " + rev);
+		task.changed = true;
+		task.rev = rev;
+	    } else {
+		print("Compose of " + task.treefile.ref + " is unchanged");
+	    }
 	}
 
-	let [allDone, changed] = this._processTaskSet(this._composeTasks);
-
+	let [allDone, success] = this._checkTaskSetDone(this._composeTasks);
 	if (allDone) {
-	    print("Compose " + this._composeVersion + " complete; changed=" + changed);
-	}
-	if (changed) {
-	    this._runCreateDisks();
+	    let changed = this._clearTaskSet(this._composeTasks);
+	    print("Compose " + this._composeVersion + " complete; changed=" + changed + " success=" + success);
+	    if (success && changed) {
+		this._runCreateDisks();
+	    }
 	}
     },
 
