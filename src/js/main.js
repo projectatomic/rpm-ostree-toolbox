@@ -53,7 +53,7 @@ function usage(ecode) {
     return ecode;
 }
 
-let ecode;
+let ecode = 1;
 if (ARGV.length > 0 && (ARGV[0] == '-h' || ARGV[0] == '--help')) {
     ecode = usage(0);
 } else {
