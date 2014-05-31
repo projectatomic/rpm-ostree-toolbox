@@ -49,6 +49,7 @@ make install DESTDIR=%{buildroot} INSTALL="install -p -c"
 %{_bindir}/rpm-ostree-toolbox
 %{_libdir}/%{name}/
 %{_datadir}/%{name}/
+%{_mandir}/man1/%{name}*.gz
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1
