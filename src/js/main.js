@@ -21,8 +21,7 @@ const Format = imports.format;
 
 const BUILTINS = [
     'create-vm-disk',
-    'prep-vagrant-disk',
-    'prep-cloud-disk',
+    'postprocess-disk',
     'repoweb',
     'shell',
     'trivial-autocompose',
