@@ -1,0 +1,10 @@
+{
+    "treefiles": ["rhel-atomic-host-base.json",
+		  "rhel-atomic-host-standard.json"],
+
+    "disks": {"rhel-atomic-host-standard": true},
+
+    "poll-timeout": 360,
+
+    "autoupdate-self": true
+}
