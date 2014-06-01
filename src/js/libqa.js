@@ -260,37 +260,6 @@ function injectExportJournal(currentDir, currentEtcDir, cancellable) {
 RateLimitInterval=0\n', null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
 }
 
-function injectTestUserCreation(currentDir, currentEtcDir, username, params, cancellable) {
-    params = Params.parse(params, { password: null });
-    let execLine;
-    if (params.password === null) {
-	execLine = Format.vprintf('/bin/sh -c "/usr/sbin/useradd %s; passwd -d %s"',
-				  [username, username]);
-    } else {
-	execLine = Format.vprintf('/bin/sh -c "/usr/sbin/useradd %s; echo %s | passwd --stdin %s',
-				  [username, params.password, username]);
-    }
-    let addUserService = '[Unit]\n\
-Description=Add user %s\n\
-Before=gdm.service\n\
-[Service]\n\
-ExecStart=%s\n\
-Type=oneshot\n';
-    addUserService = Format.vprintf(addUserService, [username, execLine]);
-
-    let addUserServicePath = getMultiuserWantsDir(currentEtcDir).get_child('gnome-ostree-add-user-' + username + '.service');
-    addUserServicePath.replace_contents(addUserService, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
-}
-
-function enableAutologin(currentDir, currentEtcDir, username, cancellable) {
-    let gdmCustomPath = currentEtcDir.resolve_relative_path('gdm/custom.conf');
-    let keyfile = new GLib.KeyFile();
-    keyfile.load_from_file(gdmCustomPath.get_path(), GLib.KeyFileFlags.NONE);
-    keyfile.set_string('daemon', 'AutomaticLoginEnable', 'true');
-    keyfile.set_string('daemon', 'AutomaticLogin', username);
-    gdmCustomPath.replace_contents(keyfile.to_data()[0], null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
-}
-
 function _findFirstFileMatching(dir, prefix, cancellable) {
     let d = dir.enumerate_children('standard::*', Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, cancellable);
     let finfo;
