@@ -54,11 +54,12 @@ jstoolbox_DATA= \
 jsautobuiltinsdir=$(jstoolboxdir)/builtins
 jsautobuiltins_DATA= \
 	src/js/builtins/create_vm_disk.js \
-	src/js/builtins/prep_cloud_disk.js \
-	src/js/builtins/prep_vagrant_disk.js \
 	src/js/builtins/postprocess_disk.js \
 	src/js/builtins/repoweb.js \
 	src/js/builtins/shell.js \
 	src/js/builtins/trivial_autocompose.js \
-	src/js/builtins/internal_trivial_autocompose_create_disk.js \
+	$(NULL)
+
+pkgdata_SCRIPTS = \
+	src/scripts/trivial-autocompose-create-disks.sh
 	$(NULL)

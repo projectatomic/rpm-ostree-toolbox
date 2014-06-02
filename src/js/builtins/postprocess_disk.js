@@ -27,10 +27,11 @@ const OSTree = imports.gi.OSTree;
 const Builtin = imports.builtin;
 const ArgParse = imports.argparse;
 const ProcUtil = imports.procutil;
+const JsonUtil = imports.jsonutil;
 const LibQA = imports.libqa;
 const GuestFish = imports.guestfish;
 
-const PostProcessDisk = new Lang.Class({
+const PostprocessDisk = new Lang.Class({
     Name: 'PostprocessDisk',
     Extends: Builtin.Builtin,
 
@@ -40,6 +41,12 @@ const PostProcessDisk = new Lang.Class({
         this.parent();
         this.parser.addArgument('diskpath');
         this.parser.addArgument('postscript');
+    },
+
+    _ensureLink: function(path, dest, cancellable) {
+        if (path.query_file_type(Gio.FileQueryInfoFlags.NOFOLLOW_SYMLINKS, null) != Gio.FileType.UNKNOWN)
+            return;
+        path.make_symbolic_link(dest, cancellable);
     },
 
     _commands: {
@@ -54,7 +61,8 @@ const PostProcessDisk = new Lang.Class({
                 let unit = units[i];
                 let linkSrc = multiUserWantsDir.get_child(unit);
 
-                linkSrc.make_symbolic_link(usrLibSystemdPath + unit);
+                print("systemctlenable(" + unit + ")");
+                this._ensureLink(linkSrc, usrLibSystemdPath + unit, null);
             }
         },
 
@@ -68,9 +76,10 @@ const PostProcessDisk = new Lang.Class({
                 let unit = units[i];
                 let linkSrc = etcSystemdSystemPath.get_child(unit);
 
-                linkSrc.make_symbolic_link('/dev/null');
+                print("systemctlmask(" + unit + ")");
+                this._ensureLink(linkSrc, '/dev/null', null);
             }
-        }
+        },
 
         // Copy in a script from the host system to run in the target.
         // This is your best bet for performing more complex
@@ -85,13 +94,15 @@ const PostProcessDisk = new Lang.Class({
                 throw new Error("No 'script' specified for injectservice");
 
             let contents;
-            let usrLibSystemdPath = dir.resolve_relative_path('usr/lib/systemd/system/' + unit);
+            let usrLibSystemdPath = dir.resolve_relative_path('usr/sbin/' + unit);
             contents = GSystem.file_load_contents_utf8(this._datadir.resolve_relative_path(script), null);
-            usrLibSystemdPath.replace_contents(contents, null, FALSE, 0, null);
+            usrLibSystemdPath.replace_contents(contents, null, false, 0, null);
 
             let etcSystemdSystemPath = dir.resolve_relative_path('etc/systemd/system/' + unit);
             contents = GSystem.file_load_contents_utf8(this._datadir.resolve_relative_path(unit), null);
-            etcSystemdSystemPath.replace_contents(contents, null, FALSE, 0, null);
+            etcSystemdSystemPath.replace_contents(contents, null, false, 0, null);
+
+            print("injectservice(" + data.unit + "," + data.script + ")");
         }
     },
 
@@ -100,7 +111,7 @@ const PostProcessDisk = new Lang.Class({
 
         this._datadir = postscriptPath.get_parent();
 
-        let postscript = JsonUtil.loadJson(this._postscriptPath, cancellable);
+        let postscript = JsonUtil.loadJson(postscriptPath, cancellable);
         let commands = postscript.commands;
         if (!commands)
             throw new Error("No 'commands' found in postscript");
@@ -121,12 +132,16 @@ const PostProcessDisk = new Lang.Class({
 
             for (let i = 0; i < commands.length; i++) {
                 let cmd = commands[i];
-                
-                let impl = this._commands[cmd];
-                if (!impl)
-                    throw new Error("No such command '" + cmd "'");
+                let name = cmd.name
 
-                impl(cmd, deployDir);
+                if (!name)
+                    throw new Error("Command index " + i + " missing 'name'");
+                
+                let impl = this._commands[name];
+                if (!impl)
+                    throw new Error("No such command '" + cmd + "'");
+
+                impl.bind(this)(cmd, deployDir);
             }
 
             ProcUtil.runSync(['ostree', 'admin', '--sysroot=' + mntdir.get_path(), 'instutil', 'selinux-ensure-labeled'], cancellable, { logInitiation: true });

@@ -232,8 +232,7 @@ const TrivialAutocompose = new Lang.Class({
 	    GSystem.shutil_rm_rf(imageWorkDir, cancellable);
 	    GSystem.file_ensure_directory(imageWorkDir, true, cancellable);
 
-	    let argv = ['rpm-ostree-toolbox',
-			'internal-trivial-autocompose-create-disk',
+	    let argv = [GLib.getenv("OSTBUILD_DATADIR") + '/trivial-autocompose-create-disks.sh',
 			this._workdir.get_child('repo').get_path(),
 			imageWorkDir.get_path(),
 			osname,

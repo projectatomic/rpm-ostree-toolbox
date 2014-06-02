@@ -24,8 +24,7 @@ const BUILTINS = [
     'postprocess-disk',
     'repoweb',
     'shell',
-    'trivial-autocompose',
-    'internal-trivial-autocompose-create-disk'];
+    'trivial-autocompose'];
 
 function getModule(unixName) {
     return imports.builtins[unixName.replace(/-/g, '_')];
