@@ -1,4 +1,4 @@
-// Copyright (C) 2012,2013,2014 Colin Walters <walters@verbum.org>
+// Copyright (C) 2014 Colin Walters <walters@verbum.org>
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -55,8 +55,9 @@ const TrivialAutocompose = new Lang.Class({
 	this._configPath = Gio.File.new_for_path(args.config);
 	this._config = JsonUtil.loadJson(this._configPath, cancellable);
 
-	if (!this._config.poll_timeout)
-	    this._config.poll_timeout = 60 * 60;
+	if (!this._config['poll-timeout'])
+	    this._config['poll-timeout'] = 60 * 60;
+	print("Will poll input pkg repositories every " + this._config['poll-timeout'] + " seconds");
 
 	this._composeTasks = {};
 	this._imageTasks = {};
@@ -70,13 +71,15 @@ const TrivialAutocompose = new Lang.Class({
 
         this._repo = new OSTree.Repo({ path: this._workdir.get_child('repo') });
 
-	this._composeTimeout = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT,
-							args.poll_timeout,
-							Lang.bind(this, this._runCompose));
-	this._runCompose();
+	this._composeNeeded = false;
+	this._composeTimeoutId = GLib.idle_add(GLib.PRIORITY_DEFAULT,
+					       this._onComposeTimeout.bind(this));
 
-	if (args.disks)
+	this._createDisksNeeded = false;
+	if (args.disks) {
+	    this._createDisksNeeded = true;
 	    this._runCreateDisks();
+	}
 
 	loop.run();
     },
@@ -86,6 +89,8 @@ const TrivialAutocompose = new Lang.Class({
 	let success = true;
 	for (let othertf in taskSet) {
 	    let task = taskSet[othertf];
+	    if (task == null)
+		continue;
 	    if (task.proc != null) {
 		allDone = false;
 		break;
@@ -198,6 +203,7 @@ const TrivialAutocompose = new Lang.Class({
         this._imagesVersion = this._imagesDir.pathToVersion(this._imagesPath);
 
 	print("Beginning images");
+	this._createDisksNeeded = false;
 	
 	let commonPrefix = null;
 	for (let ref in composeRevs) {
@@ -286,26 +292,50 @@ const TrivialAutocompose = new Lang.Class({
 	if (allDone) {
 	    let changed = this._clearTaskSet(this._composeTasks);
 	    print("Compose " + this._composeVersion + " complete; changed=" + changed + " success=" + success);
+	    if (this._composeNeeded) {
+		this._runCompose();
+	    } else {
+		let mainCtx = GLib.MainContext.default();
+		let timeoutSource = mainCtx.find_source_by_id(this._composeTimeoutId);
+		let readyTime = timeoutSource.get_ready_time() / GLib.USEC_PER_SEC;
+		let currentMonotonicTime = GLib.get_monotonic_time() / GLib.USEC_PER_SEC;
+		let deltaSecs = (readyTime - currentMonotonicTime);
+		print("Next compose scheduled for " + deltaSecs + " seconds");
+	    }
 	    if (success && changed) {
 		this._runCreateDisks();
 	    }
 	}
     },
 
+    _onComposeTimeout: function() {
+	this._composeTimeoutId = 0;
+	let [composeDone, success] = this._checkTaskSetDone(this._composeTasks);
+	if (!composeDone) {
+	    this._composeNeeded = true;
+	    print("Compose timeout expired but task is still running; will schedule after completion");
+	} else {
+	    print("Compose timeout expired");
+	    this._runCompose();
+	}
+	this._composeTimeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT,
+							  this._config['poll-timeout'],
+							  this._onComposeTimeout.bind(this));
+	return false;
+    },
+
     _runCompose: function() {
 	let cancellable = null;
-	
+
 	if (this._autoupdate_self){
 	    ProcUtil.runSync(['git', 'pull', '-r'], cancellable,
 			     { cwd: this._autoupdate_self })
 	}
 
-	for (let tf in this._composeTasks) {
-	    let task = this._composeTasks[tf];
-	    if (task != null) {
-		print("Already running compose task: " + tf + " pid=" + task.proc.get_pid());
-		return;
-	    }
+	let [composeDone, success] = this._checkTaskSetDone(this._composeTasks);
+	if (!composeDone) {
+	    print("Already running compose task: " + tf + " pid=" + task.proc.get_pid());
+	    return;
 	}
 
 	let previousVersion = this._composeDir.currentVersion(cancellable);
@@ -313,6 +343,7 @@ const TrivialAutocompose = new Lang.Class({
         this._composeVersion = this._composeDir.pathToVersion(this._composePath);
 
 	print("Beginning compose");
+	this._composeNeeded = false;
 
 	for (let tf in this._composeTasks) {
 	    let tfPath = this._configPath.get_parent().get_child(tf);
