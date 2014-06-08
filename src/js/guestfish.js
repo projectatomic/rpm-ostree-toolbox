@@ -108,6 +108,11 @@ const GuestMount = new Lang.Class({
 	    // we'd do that.
 	    proc.wait_sync_check(cancellable);
 
+	    let finfo = mntdir.query_info("unix::is-mountpoint", 0, cancellable); 
+	    if (!finfo.get_attribute_boolean("unix::is-mountpoint")) {
+		throw new Error("guestmount left " + mntdir + " unmounted?");
+	    }
+
 	    this._mounted = true;
 	} catch (e) {
 	    this._unlock();
