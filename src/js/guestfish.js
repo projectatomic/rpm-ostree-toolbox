@@ -114,7 +114,7 @@ const GuestMount = new Lang.Class({
 	    }
 
 	    this._mounted = true;
-	} catch (e) {
+	} finally {
 	    this._unlock();
 	}
     },
