@@ -56,9 +56,11 @@ cat >cloud-postprocess.json <<EOF
 	      "units": ["cloud-init.service",
 			"cloud-init-local.service",
 			"cloud-config.service",
-			"cloud-final.service"] }
+			"cloud-final.service"] },
+            { "name": "appendkernelargs",
+              "args": ["console=tty1", "console=ttyS0,115200n8"] }
 	]
-    }
+}
 EOF
 rpm-ostree-toolbox postprocess-disk "${imgtargetcloud}" $(pwd)/cloud-postprocess.json
 rm cloud-postprocess.json

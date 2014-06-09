@@ -103,6 +103,19 @@ const PostprocessDisk = new Lang.Class({
             etcSystemdSystemPath.replace_contents(contents, null, false, 0, null);
 
             print("injectservice(" + data.unit + "," + data.script + ")");
+        },
+
+        // Add a kernel argument
+        appendkernelargs: function(data, dir, params) {
+            let bootconfig = params.deployment.get_bootconfig();
+            let optString = bootconfig.get("options");
+            let opts = optString.split(/ /g);
+            opts.push.apply(opts, data.args);
+            let argv = ['ostree', 'admin',
+                        '--sysroot=' + params.mntdir.get_path(),
+                        'instutil', 'set-kargs'];
+            argv.push.apply(argv, opts);
+            ProcUtil.runSync(argv, null, { logInitiation: true });
         }
     },
 
@@ -141,7 +154,9 @@ const PostprocessDisk = new Lang.Class({
                 if (!impl)
                     throw new Error("No such command '" + cmd + "'");
 
-                impl.bind(this)(cmd, deployDir);
+                let params = {'deployment': deployment,
+                              'mntdir':  mntdir};
+                impl.bind(this)(cmd, deployDir, params);
             }
 
             ProcUtil.runSync(['ostree', 'admin', '--sysroot=' + mntdir.get_path(), 'instutil', 'selinux-ensure-labeled'], cancellable, { logInitiation: true });
