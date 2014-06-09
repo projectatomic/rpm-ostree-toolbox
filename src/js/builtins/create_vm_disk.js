@@ -24,6 +24,8 @@ const Format = imports.format;
 const GSystem = imports.gi.GSystem;
 const OSTree = imports.gi.OSTree;
 
+const Toolbox = imports.gi.Toolbox;
+
 const Builtin = imports.builtin;
 const ArgParse = imports.argparse;
 const ProcUtil = imports.procutil;
@@ -50,6 +52,9 @@ const CreateVmDisk = new Lang.Class({
         if (enforcing != 'Disabled') {
             throw new Error("SELinux must be disabled; see https://bugzilla.redhat.com/show_bug.cgi?id=1060423");
         }
+
+        Toolbox.unshare_namespaces(Toolbox.NamespaceFlags.MOUNT);
+        Toolbox.remount_rootfs_private();
 
         let repoPath = Gio.File.new_for_path(args.repo);
         let repo = new OSTree.Repo({ path: repoPath });

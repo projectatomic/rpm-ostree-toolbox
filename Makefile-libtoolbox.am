@@ -15,26 +15,18 @@
 # Free Software Foundation, Inc., 59 Temple Place - Suite 330,
 # Boston, MA 02111-1307, USA.
 
-include Makefile-decls.am
-include Makefile-man.am
+privlib_LTLIBRARIES += libtoolbox.la
 
-privdatadir=$(pkglibdir)
+libtoolbox_la_SOURCES = src/libtoolbox/toolbox.h src/libtoolbox/toolbox.c
+libtoolbox_la_CFLAGS = $(PKGDEP_GIO_UNIX_CFLAGS)
+libtoolbox_la_LIBADD = $(PKGDEP_GIO_UNIX_LIBS)
 
-ACLOCAL_AMFLAGS += -I m4 ${ACLOCAL_FLAGS}
-AM_CPPFLAGS += -DDATADIR='"$(datadir)"' \
-	-DLIBEXECDIR='"$(libexecdir)"' \
-	-DLOCALEDIR=\"$(datadir)/locale\" \
-	-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_36 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_2_36
-AM_CFLAGS += $(WARN_CFLAGS)
+Toolbox-1.0.gir: libtoolbox.la Makefile
+Toolbox_1_0_gir_INCLUDES = Gio-2.0
+Toolbox_1_0_gir_CFLAGS = $(libostree_1_la_CFLAGS)
+Toolbox_1_0_gir_LIBS = libtoolbox.la
+Toolbox_1_0_gir_SCANNERFLAGS = --warn-all --identifier-prefix=Toolbox --symbol-prefix=toolbox
+Toolbox_1_0_gir_FILES = $(libtoolbox_la_SOURCES)
+INTROSPECTION_GIRS += Toolbox-1.0.gir
 
-EXTRA_DIST += autogen.sh COPYING
-
-include $(INTROSPECTION_MAKEFILE)
-
-girdir = $(pkgdatadir)/gir-1.0
-gir_DATA = $(INTROSPECTION_GIRS)
-typelibdir = $(pkglibdir)/girepository-1.0
-typelib_DATA = $(gir_DATA:.gir=.typelib)
-
-include Makefile-libtoolbox.am
-include Makefile-toolbox.am
+CLEANFILES += $(gir_DATA) $(typelib_DATA)
