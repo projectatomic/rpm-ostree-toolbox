@@ -94,7 +94,7 @@ const PostprocessDisk = new Lang.Class({
                 throw new Error("No 'script' specified for injectservice");
 
             let contents;
-            let usrLibSystemdPath = dir.resolve_relative_path('usr/sbin/' + unit);
+            let usrLibSystemdPath = dir.resolve_relative_path('usr/sbin/' + script);
             contents = GSystem.file_load_contents_utf8(this._datadir.resolve_relative_path(script), null);
             usrLibSystemdPath.replace_contents(contents, null, false, 0, null);
 
