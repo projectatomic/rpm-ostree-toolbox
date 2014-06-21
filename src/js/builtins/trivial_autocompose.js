@@ -222,7 +222,7 @@ const TrivialAutocompose = new Lang.Class({
 	for (let tf in this._composeTasks) {
 	    let basename = tf.replace('.json', '');
 
-	    if (!this._config.disks[basename]) {
+	    if (!this._config.disks || !this._config.disks[basename]) {
 		print("No disk images configured for " + tf);
 		continue;
 	    }
