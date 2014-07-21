@@ -70,6 +70,7 @@ const TrivialAutocompose = new Lang.Class({
 	}
 
         this._repo = new OSTree.Repo({ path: this._workdir.get_child('repo') });
+        this._repo.open(cancellable);
 
 	this._composeNeeded = false;
 	this._composeTimeoutId = GLib.idle_add(GLib.PRIORITY_DEFAULT,
