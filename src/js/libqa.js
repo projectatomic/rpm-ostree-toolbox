@@ -31,7 +31,7 @@ const BOOT_UUID = "fdcaea3b-2775-45ef-b441-b46a4a18e8c4";
 const ROOT_UUID = "d230f7f0-99d3-4244-8bd9-665428054831";
 const SWAP_UUID = "61f066e3-ac18-464e-bcc7-e7c3a623cec1";
 
-const DEFAULT_GF_PARTITION_OPTS = ['-m', '/dev/sda3', '-m', '/dev/sda1:/boot'];
+const DEFAULT_GF_PARTITION_OPTS = ['-m', '/dev/atomicos/root', '-m', '/dev/sda1:/boot'];
 
 function linuxGetMemTotalMb() {
     let [success,contents] = GLib.file_get_contents('/proc/meminfo');
@@ -117,9 +117,9 @@ function _installSyslinux(gfHandle, cancellable) {
 }
 
 function createDisk(diskpath, cancellable, params) {
-    params = Params.parse(params, { sizeMb: 8 * 1024,
+    params = Params.parse(params, { sizeMb: 16 * 1024,
 				    bootsizeMb: 200,
-				    swapsizeMb: 64 });
+				    swapsizeMb: 128 });
     let guestfishProcess;
     
     ProcUtil.runSync(['qemu-img', 'create', '-o', 'compat=0.10', '-f', 'qcow2', diskpath.get_path(), '' + params.sizeMb + 'M'], cancellable);
@@ -130,47 +130,35 @@ function createDisk(diskpath, cancellable, params) {
     let diskBytesize = gfHandle.blockdev_getsize64("/dev/sda");
     let diskSectorsize = gfHandle.blockdev_getss("/dev/sda");
     print(Format.vprintf("bytesize: %s sectorsize: %s", [diskBytesize, diskSectorsize]));
-    let bootsizeSectors = 0;
-    if (params.bootsizeMb)
-	bootsizeSectors = params.bootsizeMb * 1024 / diskSectorsize * 1024;
-    let swapsizeSectors = 0;
-    if (params.swapsizeMb)
-	swapsizeSectors = params.swapsizeMb * 1024 / diskSectorsize * 1024;
-    let rootsizeSectors = diskBytesize / diskSectorsize - bootsizeSectors - swapsizeSectors - 64;
-    print(Format.vprintf("boot: %s swap: %s root: %s", [bootsizeSectors, swapsizeSectors, rootsizeSectors]));
+    let bootsizeSectors = params.bootsizeMb * 1024 / diskSectorsize * 1024;
+    let rootsizeSectors = diskBytesize / diskSectorsize - bootsizeSectors - 64;
+    print(Format.vprintf("boot: %s root: %s", [bootsizeSectors, rootsizeSectors]));
     let bootOffset = 64;
-    let swapOffset = bootOffset + bootsizeSectors;
-    let rootOffset = swapOffset + swapsizeSectors;
+    let rootOffset = bootOffset + bootsizeSectors;
     let endOffset = rootOffset + rootsizeSectors;
 
-    let bootPartitionOffset = -1
-    let swapPartitionOffset = -1;
-    let rootPartitionOffset = 1;
-    if (bootsizeSectors > 0) {
-	gfHandle.part_add("/dev/sda", "p", bootOffset, swapOffset - 1);
-	bootPartitionOffset = 1;
-	rootPartitionOffset++;
-    }
-    if (swapsizeSectors > 0) {
-	gfHandle.part_add("/dev/sda", "p", swapOffset, rootOffset - 1);
-	swapPartitionOffset = 2;
-	rootPartitionOffset++;
-    }
+    let bootPartitionOffset = 1;
+    let rootPartitionOffset = 2;
+    gfHandle.part_add("/dev/sda", "p", bootOffset, rootOffset - 1);
     gfHandle.part_add("/dev/sda", "p", rootOffset, endOffset - 1);
     if (bootsizeSectors > 0) {
-	gfHandle.mkfs("ext4", "/dev/sda" + bootPartitionOffset, new Guestfs.Mkfs({ features: "^64bit" }));
+	gfHandle.mkfs("ext4", "/dev/sda1", new Guestfs.Mkfs({ features: "^64bit" }));
 	gfHandle.set_e2uuid("/dev/sda1", BOOT_UUID);
     }
-    if (swapsizeSectors > 0) {
-	gfHandle.mkswap_U(SWAP_UUID, "/dev/sda" + swapPartitionOffset);
-    }
-    let rootPartition = "/dev/sda" + rootPartitionOffset;
-    gfHandle.mkfs("xfs", rootPartition, null);
-    gfHandle.xfs_admin(rootPartition, new Guestfs.XfsAdmin({ "uuid": ROOT_UUID}));
-    gfHandle.mount(rootPartition, "/");
+    let lvsizeMb = params.sizeMb - params.bootsizeMb;
+    let rootsizeMb = lvsizeMb - params.swapsizeMb;
+    let rootPV = "/dev/sda2";
+    gfHandle.pvcreate(rootPV);
+    gfHandle.vgcreate("atomicos", [rootPV]);
+
+    gfHandle.lvcreate("swap", "atomicos", params.swapsizeMb);
+    gfHandle.mkswap_U(SWAP_UUID, "/dev/atomicos/swap");
+    gfHandle.lvcreate_free("root", "atomicos", 100);
+    gfHandle.mkfs("xfs", "/dev/atomicos/root", null);
+    gfHandle.xfs_admin("/dev/atomicos/root", new Guestfs.XfsAdmin({ "uuid": ROOT_UUID}));
+    gfHandle.mount("/dev/atomicos/root", "/");
     gfHandle.mkdir_mode("/boot", 493);
-    if (bootPartitionOffset > 0)
-	gfHandle.mount("/dev/sda" + bootPartitionOffset, "/boot");
+    gfHandle.mount("/dev/sda1", "/boot");
     gfHandle.extlinux("/boot");
     // It's understandable that extlinux wants the loader to be
     // immutable...except that later breaks our ability to set SELinux
@@ -371,6 +359,7 @@ function pullDeploy(mntdir, srcrepo, osname, target, revision, originRepoUrl, ca
 
     let rootArg = 'root=UUID=' + ROOT_UUID;
     deployCmd.push('--karg=' + rootArg);
+    deployCmd.push('--karg=rd.lvm.lv=atomicos/root');
 
     for (let i = 0; i < params.addKernelArgs.length; i++)
 	deployCmd.push('--karg=' + params.addKernelArgs[i]);
