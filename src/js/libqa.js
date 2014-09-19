@@ -119,7 +119,10 @@ function _installSyslinux(gfHandle, cancellable) {
 function createDisk(diskpath, cancellable, params) {
     params = Params.parse(params, { sizeMb: 16 * 1024,
 				    bootsizeMb: 200,
-				    swapsizeMb: 128 });
+				    swapsizeMb: 128,
+				    rootfsLVPercent: 20,
+				    dockerMetaPercent: 8,
+				    dockerDataPercent: 100});
     let guestfishProcess;
     
     ProcUtil.runSync(['qemu-img', 'create', '-o', 'compat=0.10', '-f', 'qcow2', diskpath.get_path(), '' + params.sizeMb + 'M'], cancellable);
@@ -153,7 +156,9 @@ function createDisk(diskpath, cancellable, params) {
 
     gfHandle.lvcreate("swap", "atomicos", params.swapsizeMb);
     gfHandle.mkswap_U(SWAP_UUID, "/dev/atomicos/swap");
-    gfHandle.lvcreate_free("root", "atomicos", 100);
+    gfHandle.lvcreate_free("root", "atomicos", params.rootfsLVPercent);
+    gfHandle.lvcreate_free("docker-meta", "atomicos", params.dockerMetaPercent);
+    gfHandle.lvcreate_free("docker-data", "atomicos", params.dockerDataPercent);
     gfHandle.mkfs("xfs", "/dev/atomicos/root", null);
     gfHandle.xfs_admin("/dev/atomicos/root", new Guestfs.XfsAdmin({ "uuid": ROOT_UUID}));
     gfHandle.mount("/dev/atomicos/root", "/");

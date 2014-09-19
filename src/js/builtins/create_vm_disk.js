@@ -82,6 +82,15 @@ const CreateVmDisk = new Lang.Class({
 		                          ""],
 		                         cancellable,
 		                         { logInitiation: true });
+            let [sysroot, current] = LibQA.getSysrootAndCurrentDeployment(mntdir, osname);
+            let deployDir = sysroot.get_deployment_directory(current);
+            let etcSysconfigDockerStorage = deployDir.resolve_relative_path('etc/sysconfig/docker-storage');
+            if (etcSysconfigDockerStorage.query_exists(null)) {
+                print("Updating Docker storage: " + etcSysconfigDockerStorage.get_path());
+                etcSysconfigDockerStorage.replace_contents('DOCKER_STORAGE_OPTIONS=--storage-opt dm.fs=xfs --storage-opt dm.datadev=/dev/mapper/atomicos-docker--data --storage-opt dm.metadatadev=/dev/mapper/atomicos-docker--meta\n', null, false, 0, null);
+            } else {
+                print("No Docker storage config detected in " + etcSysconfigDockerStorage.get_path());
+            }
         } finally {
             gfmnt.umount(cancellable);
         }
