@@ -27,6 +27,7 @@ function walkDirInternal(dir, matchParams, callback, cancellable, queryStr, dept
 				       cancellable);
     let info;
     let subdirs = [];
+    try {
 
     if (depth > 0) {
 	depth -= 1;
@@ -64,8 +65,9 @@ function walkDirInternal(dir, matchParams, callback, cancellable, queryStr, dept
 	    callback(sortedFiles[i], cancellable);
 	}
     }
-
-    denum.close(cancellable);
+    } finally { 
+	denum.close(cancellable);
+    }
 
     if (sortByName) {
 	subdirs.sort(function (a, b) {
