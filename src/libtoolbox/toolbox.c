@@ -23,6 +23,9 @@
 #include <unistd.h>
 #include <sys/mount.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <time.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <string.h>
@@ -68,5 +71,31 @@ toolbox_remount_rootfs_private (GError               **error)
 
   ret = TRUE;
  out:
+  return ret;
+}
+
+gboolean
+toolbox_set_file_time_0 (GFile *path, GCancellable *cancellable, GError **error)
+{
+  gboolean ret = FALSE;
+  char *pathstr = g_file_get_path (path);
+  struct timeval tvs[2];
+
+  tvs[0].tv_sec = 0;
+  tvs[0].tv_usec = 0;
+  tvs[1].tv_sec = 0;
+  tvs[1].tv_usec = 0;
+  
+  if (utimes (pathstr, tvs) == -1)
+    {
+      int errsv = errno;
+      g_set_error (error, G_IO_ERROR, G_IO_ERROR_FAILED,
+                   "utimes(%s): %s", pathstr, g_strerror (errsv));
+      goto out;
+    }
+
+  ret = TRUE;
+ out:
+  g_free (pathstr);
   return ret;
 }

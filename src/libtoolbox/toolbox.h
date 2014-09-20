@@ -34,3 +34,6 @@ toolbox_unshare_namespaces (ToolboxNamespaceFlags  flags,
 
 gboolean
 toolbox_remount_rootfs_private (GError               **error);
+
+gboolean
+toolbox_set_file_time_0 (GFile *path, GCancellable *cancellable, GError **error);

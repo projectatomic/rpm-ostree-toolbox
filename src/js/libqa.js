@@ -20,12 +20,14 @@ const Gio = imports.gi.Gio;
 const Lang = imports.lang;
 const OSTree = imports.gi.OSTree;
 const Guestfs = imports.gi.Guestfs;
+const Toolbox = imports.gi.Toolbox;
 
 const GSystem = imports.gi.GSystem;
 const Params = imports.params;
 const ProcUtil = imports.procutil;
 const GuestFish = imports.guestfish;
 const JSUtil = imports.jsutil;
+const FileUtil = imports.fileutil;
 
 const BOOT_UUID = "fdcaea3b-2775-45ef-b441-b46a4a18e8c4";
 const ROOT_UUID = "d230f7f0-99d3-4244-8bd9-665428054831";
@@ -352,6 +354,16 @@ function pullDeploy(mntdir, srcrepo, osname, target, revision, originRepoUrl, ca
     ProcUtil.runSync(['ostree', repoArg,
                       'pull-local', '--disable-fsync', '--remote=' + osname, srcrepo.get_path(), revOrTarget], cancellable,
                      {logInitiation: true, env: adminEnv});
+
+    // Work around: https://bugzilla.redhat.com/show_bug.cgi?id=1144766
+    let totalMtimeReset = 0;
+    FileUtil.walkDir(repoPath.resolve_relative_path('objects'), { nameRegex: /\.file$/,
+								  fileType: Gio.FileType.REGULAR },
+		     function (child, cancellable) {
+			 Toolbox.set_file_time_0(child, cancellable);
+			 totalMtimeReset++;
+		     }, cancellable);
+    print("Workaround https://bugzilla.redhat.com/show_bug.cgi?id=1144766 : Reset mtime of " + totalMtimeReset + " files");
 
     let origin = GLib.KeyFile.new();
     origin.set_string('origin', 'refspec', osname + ':' + target);
