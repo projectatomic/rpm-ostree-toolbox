@@ -94,13 +94,14 @@ const PostprocessDisk = new Lang.Class({
                 throw new Error("No 'script' specified for injectservice");
 
             let contents;
-            let usrLibSystemdPath = dir.resolve_relative_path('usr/sbin/' + script);
+            let usrSbinPath = dir.resolve_relative_path('usr/sbin/' + script);
             contents = GSystem.file_load_contents_utf8(this._datadir.resolve_relative_path(script), null);
-            usrLibSystemdPath.replace_contents(contents, null, false, 0, null);
+            usrSbinPath.replace_contents(contents, null, false, 0, null);
+            GSystem.file_chmod(usrSbinPath, 493, null);
 
-            let etcSystemdSystemPath = dir.resolve_relative_path('etc/systemd/system/' + unit);
+            let usrLibSystemdSystemPath = dir.resolve_relative_path('usr/lib/systemd/system/' + unit);
             contents = GSystem.file_load_contents_utf8(this._datadir.resolve_relative_path(unit), null);
-            etcSystemdSystemPath.replace_contents(contents, null, false, 0, null);
+            usrLibSystemdSystemPath.replace_contents(contents, null, false, 0, null);
 
             print("injectservice(" + data.unit + "," + data.script + ")");
         },
