@@ -77,9 +77,8 @@ set -e
 set -x
 if ! getent passwd vagrant 1>/dev/null; then useradd vagrant; fi
 echo "vagrant" | passwd --stdin vagrant
-if ! groups vagrant | grep wheel; then usermod -a -G wheel vagrant; fi
 sed -i 's,Defaults\\s*requiretty,Defaults !requiretty,' /etc/sudoers
-echo '%wheel ALL=NOPASSWD: ALL' > /etc/sudoers.d/vagrant-nopasswd-wheel
+echo 'vagrant ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/vagrant-nopasswd
 sed -i 's/.*UseDNS.*/UseDNS no/' /etc/ssh/sshd_config
 mkdir -m 0700 -p ~vagrant/.ssh
 cat > ~vagrant/.ssh/authorized_keys << EOKEYS
