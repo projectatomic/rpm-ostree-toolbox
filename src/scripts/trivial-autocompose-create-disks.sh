@@ -150,7 +150,7 @@ cat > metadata.json <<EOF
 {
   "provider"     : "libvirt",
   "format"       : "qcow2",
-  "virtual_size" : 8
+  "virtual_size" : 16
 }
 EOF
 
