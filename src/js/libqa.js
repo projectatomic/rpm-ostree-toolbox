@@ -31,7 +31,6 @@ const FileUtil = imports.fileutil;
 
 const BOOT_UUID = "fdcaea3b-2775-45ef-b441-b46a4a18e8c4";
 const ROOT_UUID = "d230f7f0-99d3-4244-8bd9-665428054831";
-const SWAP_UUID = "61f066e3-ac18-464e-bcc7-e7c3a623cec1";
 
 const DEFAULT_GF_PARTITION_OPTS = ['-m', '/dev/atomicos/root', '-m', '/dev/sda1:/boot'];
 
@@ -119,10 +118,9 @@ function _installSyslinux(gfHandle, cancellable) {
 }
 
 function createDisk(diskpath, cancellable, params) {
-    params = Params.parse(params, { sizeMb: 16 * 1024,
+    params = Params.parse(params, { sizeMb: 8 * 1024,
 				    bootsizeMb: 200,
-				    swapsizeMb: 128,
-				    rootfsLVPercent: 20,
+				    rootfsLVPercent: 30,
 				    dockerMetaPercent: 8,
 				    dockerDataPercent: 100});
     let guestfishProcess;
@@ -151,13 +149,11 @@ function createDisk(diskpath, cancellable, params) {
 	gfHandle.set_e2uuid("/dev/sda1", BOOT_UUID);
     }
     let lvsizeMb = params.sizeMb - params.bootsizeMb;
-    let rootsizeMb = lvsizeMb - params.swapsizeMb;
+    let rootsizeMb = lvsizeMb;
     let rootPV = "/dev/sda2";
     gfHandle.pvcreate(rootPV);
     gfHandle.vgcreate("atomicos", [rootPV]);
 
-    gfHandle.lvcreate("swap", "atomicos", params.swapsizeMb);
-    gfHandle.mkswap_U(SWAP_UUID, "/dev/atomicos/swap");
     gfHandle.lvcreate_free("root", "atomicos", params.rootfsLVPercent);
     gfHandle.lvcreate_free("docker-meta", "atomicos", params.dockerMetaPercent);
     gfHandle.lvcreate_free("docker-data", "atomicos", params.dockerDataPercent);
@@ -393,8 +389,7 @@ function pullDeploy(mntdir, srcrepo, osname, target, revision, originRepoUrl, ca
     let newDeploymentDirectory = sysroot.get_deployment_directory(newDeployment);
 
     let defaultFstab = 'UUID=' + ROOT_UUID + ' / xfs defaults 1 1\n\
-UUID=' + BOOT_UUID + ' /boot ext4 defaults 1 2\n\
-UUID=' + SWAP_UUID + ' swap swap defaults 0 0\n';
+UUID=' + BOOT_UUID + ' /boot ext4 defaults 1 2\n';
     let fstabPath = newDeploymentDirectory.resolve_relative_path('etc/fstab');
     fstabPath.replace_contents(defaultFstab, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
 
