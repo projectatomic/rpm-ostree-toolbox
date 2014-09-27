@@ -63,3 +63,18 @@ jsautobuiltins_DATA= \
 pkgdata_SCRIPTS = \
 	src/scripts/trivial-autocompose-create-disks.sh
 	$(NULL)
+
+pytoolboxdatadir = $(datadir)/compose
+pytoolboxdata_DATA = src/py/config.ini.sample
+
+pytoolboxdir = $(pkgdatadir)/py
+pytoolbox_SCRIPTS = src/py/composeall
+
+pytoolboxdatavagrantdir = $(pytoolboxdatadir)/vagrant
+pytoolboxdatavagrant_DATA = \
+	src/py/vagrant/metadata.json \
+	src/py/vagrant/Vagrantfile \
+	src/py/vagrant/vagrant-postprocess.json \
+	src/py/vagrant/vagrant-prep \
+	src/py/vagrant/vagrant-prep.service \
+	$(NULL)

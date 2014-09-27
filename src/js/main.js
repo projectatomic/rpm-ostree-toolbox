@@ -26,6 +26,11 @@ const BUILTINS = [
     'shell',
     'trivial-autocompose'];
 
+const EXTERNALS = [
+    {'name': 'composeall',
+     'description': 'compose a tree and create disk images'}
+];
+
 function getModule(unixName) {
     return imports.builtins[unixName.replace(/-/g, '_')];
 }
@@ -47,6 +52,10 @@ function usage(ecode) {
 	    continue;
 	let description = getClass(unixName).prototype.DESCRIPTION;
         print(Format.vprintf("    %s - %s", [unixName, description]));
+    }
+    for (let i = 0; i < EXTERNALS.length; i++) {
+	let obj = EXTERNALS[i];
+        print(Format.vprintf("    %s - %s", [obj.name, obj.description]));
     }
     return ecode;
 }

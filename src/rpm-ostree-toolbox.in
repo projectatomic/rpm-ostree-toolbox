@@ -32,4 +32,10 @@ if test -x "$externalpath"; then
     exec "$externalpath" "$@"
 fi
 
+externalpath="$OSTBUILD_DATADIR/py/$1"
+if test -x "${externalpath}"; then
+    shift
+    exec "$externalpath" "$@"
+fi
+
 exec $OSTBUILD_GDB gjs -I "${jsdir}" "${jsdir}/main.js" "$@"

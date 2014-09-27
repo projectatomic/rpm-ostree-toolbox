@@ -1,0 +1,366 @@
+#!/usr/bin/env python
+# Copyright (C) 2014 Colin Walters <walters@verbum.org>, Andy Grimm <agrimm@redhat.com>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public
+# License along with this library; if not, write to the
+# Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+# Boston, MA 02111-1307, USA.
+
+import json
+import os
+import sys
+import tempfile
+import argparse
+import shutil
+import subprocess
+import distutils.spawn
+from gi.repository import Gio, OSTree, GLib
+import iniparse
+
+# For ImageFactory builds
+from imgfac.BuildDispatcher import BuildDispatcher
+from imgfac.PluginManager import PluginManager
+from imgfac.ApplicationConfiguration import ApplicationConfiguration
+import logging
+
+def fail_msg(msg):
+    if False:
+        raise Exception(msg)
+    print >>sys.stderr, msg
+    sys.exit(1)
+
+def print_header(tasks):
+    print "=" * 78
+    print tasks
+    print "=" * 78
+
+def run_sync(args, **kwargs):
+    """Wraps subprocess.check_call(), logging the command line too."""
+    print "Running: %s" % (subprocess.list2cmdline(args), )
+    subprocess.check_call(args, **kwargs)
+
+class ImgBuilder(object):
+    '''
+    Abstract class from which specific builder inherit.
+    This is mostly because we want to allow for direct calls to imagefactory,
+    but also calls to koji.  In one case, we need to generate a TDL; in the
+    other, we provide the parameters and let the system construct it.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def build(self):
+        '''
+        Trigger a build.  Return something useful like a build id, status, etc.
+        '''
+        raise NotImplementedError
+
+    def download(self, dest):
+        '''
+        Copy/download artifacts to a destination
+        '''
+        raise NotImplementedError
+
+class ImgFacBuilder(ImgBuilder):
+    def __init__(self, *args, **kwargs):
+        config = json.loads(open('/etc/imagefactory/imagefactory.conf').read())
+        config['plugins'] = '/etc/imagefactory/plugins.d'
+        config['timeout'] = 3600
+        ApplicationConfiguration(configuration=config)
+        plugin_mgr = PluginManager('/etc/imagefactory/plugins.d')
+        plugin_mgr.load()
+
+        logfile = os.path.join(kwargs['workdir'], 'imgfac.log')
+
+        self.fhandler = logging.FileHandler(logfile)
+        self.tlog = logging.getLogger()
+        self.tlog.setLevel(logging.DEBUG)
+        self.tlog.addHandler(self.fhandler)
+
+        pass
+
+    def build(self, template=None, parameters=None):
+        bd = BuildDispatcher()
+        builder = bd.builder_for_base_image(template=template,
+                                            parameters=parameters)
+        print json.dumps(builder.app_config)
+        image = builder.base_image
+        thread = builder.base_thread
+        for key in image.metadata():
+            print "%s %s" % (key, getattr(image, key, None))
+
+        thread.join()
+
+        if image.status != "COMPLETE":
+            fail_msg("Failed image status: " + image.status)
+        return image.data
+
+    def download(self):
+        pass
+
+class KojiBuilder(ImgBuilder):
+    def __init__(self, **kwargs):
+        # sort of
+        # server = kwargs.pop('server')
+        # self.session = koji.ClientSession(server, kwargs)
+        pass
+
+    def build(self):
+        # TODO: populate buildinfo
+        # self.session.createImageBuild(buildinfo)
+        pass
+
+    def download(self):
+        pass
+
+
+class Composer(object):
+    ATTRS = [ 'outputdir', 'workdir', 'srcdir', 'ostree_repo',
+              'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
+              'tree_name', 'tree_file', 'arch', 'release', 'ref',
+              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
+              'cmd_ostree', 'cmd_rpm_ostree', 'cmd_lorax', 
+            ]
+
+    def __init__(self, configfile, release):
+        self._repo = None
+        defaults = { 'workdir': None,
+                     'srcdir':  os.environ['OSTBUILD_DATADIR'],
+                     'rpmostree_cache_dir': os.path.join(os.getcwd(), release, 'cache'),
+                     'yum_baseurl': None,
+                     'local_overrides': None,
+                     'cmd_ostree'     : 'ostree',
+                     'cmd_rpm_ostree' : 'rpm-ostree',
+                     'cmd_lorax'      : 'lorax',
+                   }
+
+        if not os.path.exists(configfile):
+            fail_msg("No config file: " + configfile)
+
+        settings = iniparse.ConfigParser()
+        settings.read(configfile)
+        for attr in self.ATTRS:
+            try:
+                val = settings.get(release, attr)
+            except (iniparse.NoOptionError, iniparse.NoSectionError), e:
+                try:
+                    val = settings.get('DEFAULT', attr)
+                except iniparse.NoOptionError, e:
+                    val = defaults.get(attr)
+            setattr(self, attr, val)
+
+        if not self.yum_baseurl:
+            if self.release in [ '21', 'rawhide' ]:
+                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/development/%s/%s/os/' % (self.release, self.arch)
+            else:
+                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/releases/%s/%s/os/' % (self.release, self.arch)
+
+        if self.http_proxy:
+            os.environ['http_proxy'] = self.http_proxy
+
+        self.workdir_is_tmp = False
+        if self.workdir is None:
+            self.workdir = tempfile.mkdtemp('.tmp', 'atomic-treecompose')
+            self.workdir_is_tmp = True
+
+        for cmd in (self.cmd_ostree, self.cmd_rpm_ostree, self.cmd_lorax):
+            if os.path.isfile(cmd):
+                continue
+            if distutils.spawn.find_executable(cmd):
+                continue
+            fail_msg("Command not found: " + cmd)
+
+        return
+
+    @property
+    def repo(self):
+        if not os.path.exists(self.ostree_repo):
+            #  Remove the cache, if the repo. is gone ... or rpm-ostree is very
+            # confused.
+            shutil.rmtree(self.rpmostree_cache_dir)
+            os.makedirs(self.ostree_repo)
+            subprocess.check_call([self.cmd_ostree, 'init',
+                                   "--repo="+self.ostree_repo])
+        if self._repo is None:
+            self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
+            self._repo.open(None)
+        return self._repo
+
+    def show_config(self):
+        print "\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ])
+
+    def compose_tree(self):
+        # XXX: rpm-ostree should be handling this, I think
+        if not os.path.exists(self.rpmostree_cache_dir):
+            os.makedirs(self.rpmostree_cache_dir)
+        _,origrev = self.repo.resolve_rev(self.ref, True)
+        print_header("Performing Task: tree (ostree compose)")
+        if not self.tree_file:
+            self.tree_file = '%s/%s-%s.json' % (self.srcdir, self.os_name,
+                                                self.tree_name)
+        subprocess.check_call([self.cmd_rpm_ostree, 'compose', 'tree',
+                               '--repo=' + self.ostree_repo,
+                               '--cachedir=' + self.rpmostree_cache_dir,
+                               self.tree_file])
+        _,newrev = self.repo.resolve_rev(self.ref, True)
+        return (origrev, newrev)
+
+    def create_disks(self, tasks):
+        [res,rev] = self.repo.resolve_rev(self.ref, False)
+        [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
+
+        commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
+        print commitdate
+        # XXX - Define this somewhere?
+        imageoutputdir=os.path.join(self.outputdir, 'images')
+
+        imagedir = os.path.join(imageoutputdir, rev[:8])
+        if not os.path.exists(imagedir):
+            os.makedirs(imagedir)
+
+        imagestmpdir = os.path.join(self.workdir, 'images')
+        os.mkdir(imagestmpdir)
+
+        generated = []
+
+        if 'installer' in tasks:
+            print_header("Performing Task: installer (lorax boot.iso)")
+            imgtargetinstaller=os.path.join(imagestmpdir, 'install', '%s-installer.iso' % self.os_name)
+            self.create_installer_image(self.workdir, imgtargetinstaller)
+            generated.append(imgtargetinstaller)
+
+        if 'cloud' in tasks:
+            print_header("Performing Task: cloud (imagefactory build)")
+            imgtargetcloud=os.path.join(imagestmpdir, 'cloud', '%s.qcow2' % self.os_name)
+            self.create_cloud_image(self.workdir, imgtargetcloud,
+                                    os.path.join(self.srcdir, 'fedora-%s-cloud-atomic.ks' % self.release))
+            generated.append(imgtargetcloud)
+
+        if 'vagrant' in tasks:
+            print_header("Performing Task: vagrant (imagefactory build)")
+            imgtargetvagrant=os.path.join(imagestmpdir, 'vagrant', '%s.qcow2' % self.os_name)
+            self.create_cloud_image(self.workdir, imgtargetvagrant,
+                                    os.path.join(self.srcdir, 'fedora-%s-vagrant-atomic.ks' % self.release))
+            generated.append(imgtargetvagrant)
+            # TODO: Put it in a "box"
+            # imgtargetvagrantlibvirt=os.path.join(imagestmpdir, 'vagrant-libvirt', '%s.box' % self.os_name)
+
+        for f in generated:
+            destpath = os.path.join(imagedir, os.path.basename(f))
+            print "Created: " + destpath
+            shutil.move(f, destpath)
+
+    def create_installer_image(self, tmpdir, target):
+        lorax_opts = []
+        if self.local_overrides:
+            lorax_opts.extend([ '-s', self.local_overrides ])
+        if self.lorax_additional_repos:
+            for repourl in self.lorax_additional_repos.split(','):
+                lorax_opts.extend(['-s', repourl.strip()])
+        http_proxy = os.environ.get('http_proxy')
+        if http_proxy:
+            lorax_opts.extend([ '--proxy', http_proxy ])
+
+        lorax_workdir = os.path.join(tmpdir, 'lorax')
+        os.makedirs(lorax_workdir)
+        # Lorax doesn't deal well with loading templates from relative paths
+        abs_srcdir = os.path.realpath(self.srcdir)
+        run_sync([self.cmd_lorax, '--nomacboot',
+                  '--add-template=%s/lorax-embed-repo.tmpl' % abs_srcdir,
+                  '--add-template-var=ostree_repo=%s' % self.ostree_repo,
+                  '--add-template-var=ostree_ref=%s' % self.ref,
+                  '-p', self.os_pretty_name, '-v', self.release,
+                  '-r', self.release, '-s', self.yum_baseurl,
+                  ] + lorax_opts + ['output'],
+                 cwd=lorax_workdir)
+        os.makedirs(os.path.dirname(target))
+        # Right now we only take the boot.iso (which is really
+        # installer.iso since we used a template to inject data)
+        os.rename(lorax_workdir + '/output/images/boot.iso', target)
+
+    def create_cloud_image(self, tmpdir, target, ksfile):
+        targetdir = os.path.dirname(target)
+        if not os.path.exists(targetdir):
+            os.makedirs(targetdir)
+
+        port_file_path = tmpdir + '/repo-port'
+        subprocess.check_call([self.cmd_ostree,
+                               'trivial-httpd', '--autoexit', '--daemonize',
+                               '--port-file', port_file_path],
+                              cwd=self.ostree_repo + '/..')
+
+        httpd_port = open(port_file_path).read().strip()
+        print "trivial httpd port=%s" % (httpd_port, )
+
+        # TODO: Pull kickstart from separate git repo
+        kickstart = open(ksfile).read()
+        kickstart = kickstart.replace('@OSTREE_PORT@', httpd_port)
+
+        parameters =  { "install_script": kickstart, 
+                        "generate_icicle": False,
+                      }
+
+        image_path = self.builder.build(template=open(os.path.join(self.srcdir, 'fedora-%s.tdl' % self.release)).read(),
+                                        parameters=parameters)
+        shutil.copyfile(image_path, target)
+        print "Created: " + target
+
+    @property
+    def builder(self):
+        # TODO: option to switch to koji builder
+        if True:
+            return ImgFacBuilder(workdir=self.workdir)
+        else:
+            return KojiBuilder()
+
+    def cleanup(self):
+        if self.workdir_is_tmp:
+            shutil.rmtree(self.workdir)
+
+## End Composer
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Compose OSTree trees and build images.')
+    parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
+    parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
+    parser.add_argument('-t', '--task', action='append', help='Perform only these steps', default=None)
+    parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    args = parser.parse_args()
+
+    composer = Composer(args.config, args.release)
+    composer.show_config()
+
+    all_tasks = set(['tree', 'cloud', 'installer', 'vagrant'])
+    if args.task is None:
+        args.task = all_tasks
+    else:
+        for task in args.task:
+            if task not in all_tasks:
+                fail_msg("Not a valid task: " + task)
+
+    print_header("Performing Tasks: " + ", ".join(sorted(args.task)))
+
+    if 'tree' in args.task:
+        origrev, newrev = composer.compose_tree()
+    else:
+        origrev = None
+        _,newrev = composer.repo.resolve_rev(composer.ref, True)
+
+    if origrev != newrev:
+        print "%s => %s" % (composer.ref, newrev)
+        composer.create_disks(args.task)
+    else:
+        print "%s is unchanged at %s" % (composer.ref, origrev)
+
+    composer.cleanup()
