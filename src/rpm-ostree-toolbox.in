@@ -19,6 +19,7 @@
 jsdir=@pkgdatadir@/js
 
 export GI_TYPELIB_PATH="@pkglibdir@/girepository-1.0${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
+export PYTHONPATH="@pkglibdir@/py${PYTHONPATH:+:$PYTHONPATH}"
 export LD_LIBRARY_PATH="@pkglibdir@/${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # Don't auto-spawn a session bus
 export GIO_USE_VFS=local
@@ -30,6 +31,11 @@ externalpath="$OSTBUILD_LIBDIR/rpm-ostree-toolbox-builtin-$1"
 if test -x "$externalpath"; then
     shift
     exec "$externalpath" "$@"
+fi
+
+externalpath="$OSTBUILD_LIBDIR/py/rpmostreecompose/$1.py"
+if test -f "${externalpath}"; then
+    exec "$OSTBUILD_LIBDIR/py/rpmostreecompose-main" "$@"
 fi
 
 exec $OSTBUILD_GDB gjs -I "${jsdir}" "${jsdir}/main.js" "$@"

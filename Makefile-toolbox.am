@@ -63,3 +63,30 @@ jsautobuiltins_DATA= \
 pkgdata_SCRIPTS = \
 	src/scripts/trivial-autocompose-create-disks.sh
 	$(NULL)
+
+pytoolboxdatadir = $(pkgdatadir)
+pytoolboxdata_DATA = \
+	src/py/config.ini.sample \
+	src/py/lorax-embed-repo.tmpl \
+	$(NULL)
+
+pytoolboxpydir = $(pkglibdir)/py
+pytoolboxpy_SCRIPTS = \
+	src/py/rpmostreecompose-main \
+	$(NULL)
+pytoolboxpylibdir = $(pkglibdir)/py/rpmostreecompose
+pytoolboxpylib_PYTHON = \
+	src/py/rpmostreecompose/__init__.py \
+	src/py/rpmostreecompose/treecompose.py \
+	src/py/rpmostreecompose/imagefactory.py \
+	src/py/rpmostreecompose/installer.py \
+	$(NULL)
+
+pytoolboxdatavagrantdir = $(pytoolboxdatadir)/vagrant
+pytoolboxdatavagrant_DATA = \
+	src/py/vagrant/metadata.json \
+	src/py/vagrant/Vagrantfile \
+	src/py/vagrant/vagrant-postprocess.json \
+	src/py/vagrant/vagrant-prep \
+	src/py/vagrant/vagrant-prep.service \
+	$(NULL)

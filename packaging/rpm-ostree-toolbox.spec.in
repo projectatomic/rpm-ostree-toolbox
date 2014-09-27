@@ -19,6 +19,9 @@ BuildRequires: pkgconfig(ostree-1)
 BuildRequires: pkgconfig(libgsystem)
 BuildRequires: pkgconfig(json-glib-1.0)
 
+Requires: python
+Requires: python-iniparse
+Requires: pygobject2
 Requires: gjs
 Requires: libguestfs-tools-c
 Requires: libguestfs-gobject

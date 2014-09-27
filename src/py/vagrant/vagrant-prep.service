@@ -1,0 +1,8 @@
+[Unit]
+Description=Initialize vagrant
+Before=sshd.service
+ConditionPathExists=!/var/vagrant-prep.done
+
+[Service]
+ExecStart=/usr/sbin/vagrant-prep
+Type=oneshot

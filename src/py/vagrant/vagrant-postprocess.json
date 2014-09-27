@@ -1,0 +1,15 @@
+{
+	"commands":
+	[
+	    { "name": "systemctlmask",
+	      "units": ["cloud-init.service",
+			"cloud-init-local.service",
+			"cloud-config.service",
+			"cloud-final.service"] },
+	    { "name": "injectservice",
+	      "unit": "vagrant-prep.service",
+	      "script": "vagrant-prep" },
+	    { "name": "systemctlenable",
+	      "units": [ "vagrant-prep.service" ] }
+	]
+}

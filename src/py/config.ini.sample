@@ -1,0 +1,24 @@
+[DEFAULT]
+
+outputdir   = /srv/ostree/%(release)s
+# workdir     = os.getcwd()
+# srcdir      = os.path.join(os.path.dirname(sys.argv[0], '..')
+# rpmostree_cache_dir = %(workdir)s/%(release)s/cache
+ostree_repo = %(outputdir)s/repo
+os_name     = fedora-atomic
+os_pretty_name = Fedora Atomic
+tree_name   = docker-host
+tree_file   = %(os_name)s-%(tree_name)s.json
+arch        = x86_64
+release     = rawhide
+ref         = %(os_name)s/%(release)s/%(arch)s/%(tree_name)s
+# yum_baseurl = http://example.com/baserepo
+# Comma separated
+# lorax_additional_repos = http://example.com/baserepo, http://example.com/addrepo
+# local_overrides
+
+[rawhide]
+
+[fedora-21]
+release = 21
+
