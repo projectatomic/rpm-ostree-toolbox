@@ -33,9 +33,4 @@ if test -x "$externalpath"; then
     exec "$externalpath" "$@"
 fi
 
-externalpath="$OSTBUILD_LIBDIR/py/rpmostreecompose/$1.py"
-if test -f "${externalpath}"; then
-    exec "$OSTBUILD_LIBDIR/py/rpmostreecompose-main" "$@"
-fi
-
-exec $OSTBUILD_GDB gjs -I "${jsdir}" "${jsdir}/main.js" "$@"
+exec "$OSTBUILD_LIBDIR/py/rpmostreecompose-main" "$@"

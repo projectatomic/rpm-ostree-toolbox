@@ -21,8 +21,27 @@ import sys
 
 from rpmostreecompose import imagefactory, installer, treecompose
 
+def execgjs(cmd, argv):
+    jsdir=os.path.join(os.environ['OSTBUILD_DATADIR'] + '/js')
+    target_argv = ['gjs', '-I', jsdir, jsdir + '/main.js', cmd]
+    target_argv.extend(argv)
+    os.execvp('gjs', target_argv)
+
+def usage(iserr):
+    stream = sys.stderr if iserr else sys.stdout
+    stream.write("""Builtins:
+  treecompose - Use rpm-ostree to compose RPMs to a tree
+  imagefactory - Use ImageFactory to create a disk image
+  installer - Use Lorax to create an installable ISO and PXE boot loader
+  create-vm-disk - Deprecated in favor of imagefactory
+  postprocess-disk - Deprecated; instead use imagefactory to generate multiple images
+""")
+    sys.exit(1 if iserr else 0)
+
 if __name__ == '__main__':
     print "%r" % (sys.argv, )
+    if len(sys.argv) <= 1:
+        usage(False)
     cmd = sys.argv.pop(1)
     if cmd == 'imagefactory':
         imagefactory.main()
@@ -30,7 +49,8 @@ if __name__ == '__main__':
         installer.main()
     elif cmd == 'treecompose':
         treecompose.main()
+    elif cmd in ['create-vm-disk', 'postprocess-disk', 'trivial-autocompose']:
+        execgjs(cmd, sys.argv[1:])
     else:
-        sys.stderr.write('Unknown builtin: %s\n' % (cmd,))
-        sys.exit(1)
-
+        sys.stderr.write("""Unknown builtin: %s""" % (cmd, ))
+        usage(True)
