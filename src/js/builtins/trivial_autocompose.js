@@ -178,7 +178,7 @@ const TrivialAutocompose = new Lang.Class({
 		    let targetResultdir = imagesTmpDir.get_child(task.name);
 		    GSystem.file_ensure_directory(targetResultdir.get_parent(), true, cancellable);
 		    print("Renaming " + task.resultdir.get_path() + " => " + targetResultdir.get_path());
-		    GSystem.file_rename(task.resultdir, targetResultdir, null);
+		    ProcUtil.runSync(['mv', task.resultdir.get_path(), targetResultdir.get_path()], cancellable);
 		}
 		
 		this._atomicSymlinkSwap(imagesAutolink, imagesTmpDir, cancellable); 
