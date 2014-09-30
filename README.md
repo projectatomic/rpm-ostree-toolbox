@@ -5,9 +5,6 @@ This is a higher level app on top of the core `rpm-ostree` tool.  It
 contains a variety of tools and scripts for making disk images, the
 "repoweb" generator, and such.
 
-*NOTICE*: The base disk image generation here is deprecated.  We're
-investing in Anaconda for this.  
-
 The "postprocess" command is still useful though as a way to avoid
 creating multiple disk images for different variants.
 
