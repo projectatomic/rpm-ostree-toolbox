@@ -1,6 +1,6 @@
 ## Lorax template to embed ostree repo into installer
 
-<%page args="root, ostree_repo, ostree_ref"/>
+<%page args="root, ostree_osname, ostree_repo, ostree_ref"/>
 
 mkdir install/ostree
 
@@ -8,7 +8,7 @@ runcmd ostree --repo=${root}/install/ostree init --mode=archive-z2
 runcmd ostree --repo=${root}/install/ostree pull-local --disable-fsync ${ostree_repo} ${ostree_ref}
 
 append usr/share/anaconda/interactive-defaults.ks "bootloader --timeout=3 --extlinux\n"
-append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=fedora-atomic-host --remote=installmedia --url=file:///install/ostree --ref=${ostree_ref}\n"
+append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=${ostree_osname} --remote=${ostree_osname} --url=file:///install/ostree --ref=${ostree_ref}\n"
 append usr/share/anaconda/interactive-defaults.ks "services --disabled cloud-init,cloud-config,cloud-final,cloud-init-local\n"
 
 

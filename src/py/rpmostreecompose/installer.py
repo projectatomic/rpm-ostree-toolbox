@@ -161,6 +161,7 @@ class Composer(object):
         os.makedirs(lorax_workdir)
         run_sync([self.cmd_lorax, '--nomacboot',
                   '--add-template=%s/lorax-embed-repo.tmpl' % self.pkgdatadir,
+                  '--add-template-var=ostree_osname=%s' % self.os_name,
                   '--add-template-var=ostree_repo=%s' % self.ostree_repo,
                   '--add-template-var=ostree_ref=%s' % self.ref,
                   '-p', self.os_pretty_name, '-v', self.release,
