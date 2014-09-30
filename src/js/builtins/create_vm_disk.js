@@ -40,6 +40,7 @@ const CreateVmDisk = new Lang.Class({
 
     _init: function() {
         this.parent();
+        this.parser.addArgument('--unconfigured-state', { description: 'Error mesage to use if OS needs further configuration' });
         this.parser.addArgument('repo');
         this.parser.addArgument('osname');
         this.parser.addArgument('ref');
@@ -74,7 +75,7 @@ const CreateVmDisk = new Lang.Class({
         try {
             let osname = args['osname'];
             LibQA.pullDeploy(mntdir, repoPath, osname, args.ref, rev, null,
-                             cancellable, { addKernelArgs: [] });
+                             cancellable, { addKernelArgs: [], unconfiguredState: args.unconfigured_state });
             print("Doing initial labeling");
             ProcUtil.runSync(['ostree', 'admin', '--sysroot=' + mntdir.get_path(),
                               'instutil', 'selinux-ensure-labeled',

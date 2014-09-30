@@ -297,7 +297,8 @@ function _findCurrentOstreeBootArg(mntdir, cancellable) {
 
 function pullDeploy(mntdir, srcrepo, osname, target, revision, originRepoUrl, cancellable,
 		    params) {
-    params = Params.parse(params, { addKernelArgs: ['quiet'] });
+    params = Params.parse(params, { addKernelArgs: ['quiet'],
+				    unconfiguredState: null });
     let ostreedir = mntdir.get_child('ostree');
     let ostreeOsdir = ostreedir.resolve_relative_path('deploy/' + osname);
 
@@ -363,6 +364,8 @@ function pullDeploy(mntdir, srcrepo, osname, target, revision, originRepoUrl, ca
 
     let origin = GLib.KeyFile.new();
     origin.set_string('origin', 'refspec', osname + ':' + target);
+    if (params.unconfiguredState)
+	origin.set_string('origin', 'unconfigured-state', params.unconfiguredState);
     let [originData, len] = origin.to_data();
     let tmpOrigin = Gio.File.new_for_path('origin.tmp');
     tmpOrigin.replace_contents(originData, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, cancellable);
