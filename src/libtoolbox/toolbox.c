@@ -26,6 +26,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
+#include <utime.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <string.h>
