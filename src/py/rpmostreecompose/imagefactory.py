@@ -35,11 +35,6 @@ import logging
 
 from .utils import run_sync, fail_msg
 
-def print_header(tasks):
-    print "=" * 78
-    print tasks
-    print "=" * 78
-
 class ImgBuilder(object):
     '''
     Abstract class from which specific builder inherit.

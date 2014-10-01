@@ -29,11 +29,6 @@ import iniparse
 
 from .utils import run_sync, fail_msg
 
-def print_header(tasks):
-    print "=" * 78
-    print tasks
-    print "=" * 78
-
 class Composer(object):
     ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
               'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
@@ -114,7 +109,6 @@ class Composer(object):
         if not os.path.exists(self.rpmostree_cache_dir):
             os.makedirs(self.rpmostree_cache_dir)
         _,origrev = self.repo.resolve_rev(self.ref, True)
-        print_header("Performing Task: tree (ostree compose)")
         if not self.tree_file:
             self.tree_file = '%s/%s-%s.json' % (self.pkgdatadir, self.os_name,
                                                 self.tree_name)

@@ -29,11 +29,6 @@ import iniparse
 
 from .utils import run_sync, fail_msg
 
-def print_header(tasks):
-    print "=" * 78
-    print tasks
-    print "=" * 78
-
 class Composer(object):
     ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
               'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
@@ -127,7 +122,6 @@ class Composer(object):
 
         generated = []
 
-        print_header("Performing Task: installer (lorax boot.iso)")
         imgtargetinstaller=os.path.join(imagestmpdir, 'install', '%s-installer.iso' % self.os_name)
         self.create_installer_image(self.workdir, imgtargetinstaller)
         generated.append(imgtargetinstaller)
