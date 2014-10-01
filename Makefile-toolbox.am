@@ -77,6 +77,7 @@ pytoolboxpy_SCRIPTS = \
 pytoolboxpylibdir = $(pkglibdir)/py/rpmostreecompose
 pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/__init__.py \
+	src/py/rpmostreecompose/utils.py \
 	src/py/rpmostreecompose/treecompose.py \
 	src/py/rpmostreecompose/imagefactory.py \
 	src/py/rpmostreecompose/installer.py \

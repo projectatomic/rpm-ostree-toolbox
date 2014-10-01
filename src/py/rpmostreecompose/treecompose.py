@@ -27,21 +27,12 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
 
-def fail_msg(msg):
-    if False:
-        raise Exception(msg)
-    print >>sys.stderr, msg
-    sys.exit(1)
+from .utils import run_sync, fail_msg
 
 def print_header(tasks):
     print "=" * 78
     print tasks
     print "=" * 78
-
-def run_sync(args, **kwargs):
-    """Wraps subprocess.check_call(), logging the command line too."""
-    print "Running: %s" % (subprocess.list2cmdline(args), )
-    subprocess.check_call(args, **kwargs)
 
 class Composer(object):
     ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
