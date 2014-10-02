@@ -27,6 +27,12 @@ Requires: libguestfs-tools-c
 Requires: libguestfs-gobject
 # Needed for libguests
 Requires: kernel
+
+Requires: lorax
+# Imagefactory
+Requires: imagefactory
+Requires: imagefactory-plugins-TinMan
+
 %if 0%{?rhel}
 %else
 Requires: libguestfs-xfs
