@@ -54,11 +54,11 @@ class VersionedDir(object):
         month = self._get_latest_in(monthdir)
         if month is None:
             return
-        daydir = os.path.join(monthdir, str(month))
+        daydir = os.path.join(monthdir, '%02d' % month)
         day = self._get_latest_in(daydir)
         if day is None:
             return
-        serialdir = os.path.join(daydir, str(day))
+        serialdir = os.path.join(daydir, '%02d' % day)
         serial = self._get_latest_in(serialdir)
         if serial is None:
             return
@@ -76,7 +76,7 @@ class VersionedDir(object):
             newserial = self._latest[3] + 1
         else:
             newserial = 0
-        path = os.path.join(self.path, str(year), str(month), str(day), str(newserial))
+        path = os.path.join(self.path, str(year), '%02d' % month, '%02d' % day, str(newserial))
         os.makedirs(path)
         self._latest = [year, month, day, newserial]
         return path
