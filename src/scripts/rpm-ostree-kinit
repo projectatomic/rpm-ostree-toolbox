@@ -22,7 +22,7 @@ import subprocess
 
 # FIXME: better way to hardcode defaults?
 global config_file, verbose
-config_file = '/etc/rpm-ostree.conf'
+config_file = '/etc/rpm-ostree-toolbox.ini'
 verbose     = False
 
 def refresh_kerberos():
