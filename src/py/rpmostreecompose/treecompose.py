@@ -126,7 +126,7 @@ class Composer(object):
 ## End Composer
 
 def main():
-    parser = argparse.ArgumentParser(description='Compose OSTree trees and build images.')
+    parser = argparse.ArgumentParser(description='Compose OSTree tree')
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')

@@ -259,7 +259,7 @@ class Composer(object):
 ## End Composer
 
 def main():
-    parser = argparse.ArgumentParser(description='Compose OSTree trees and build images.')
+    parser = argparse.ArgumentParser(description='Use ImageFactory to create a disk image')
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('--name', type=str, required=True, help='Image name') 
     parser.add_argument('--tdl', type=str, required=True, help='TDL file') 
