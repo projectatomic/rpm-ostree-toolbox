@@ -66,6 +66,10 @@ class TaskRunner(object):
     def _load_taskdefs(self):
         for child in os.listdir(self._taskspath):
             taskdef_path = os.path.join(self._taskspath, child, 'taskdef.conf')
+            if not os.path.exists(taskdef_path):
+                logging.warn("Task directory '%s' exists but has no taskdef.conf",
+                             os.path.dirname(taskdef_path))
+                continue
             logging.info("Loading: " + taskdef_path)
             keyfile = GLib.KeyFile.new()
             GLib.KeyFile.load_from_file(keyfile,taskdef_path, 0)
