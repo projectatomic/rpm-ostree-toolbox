@@ -134,9 +134,9 @@ function createDisk(diskpath, cancellable, params) {
     let diskSectorsize = gfHandle.blockdev_getss("/dev/sda");
     print(Format.vprintf("bytesize: %s sectorsize: %s", [diskBytesize, diskSectorsize]));
     let bootsizeSectors = params.bootsizeMb * 1024 / diskSectorsize * 1024;
-    let rootsizeSectors = diskBytesize / diskSectorsize - bootsizeSectors - 64;
+    let bootOffset = 2048;
+    let rootsizeSectors = diskBytesize / diskSectorsize - bootsizeSectors - bootOffset;
     print(Format.vprintf("boot: %s root: %s", [bootsizeSectors, rootsizeSectors]));
-    let bootOffset = 64;
     let rootOffset = bootOffset + bootsizeSectors;
     let endOffset = rootOffset + rootsizeSectors;
 
