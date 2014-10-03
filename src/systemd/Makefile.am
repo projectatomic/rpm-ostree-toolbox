@@ -1,7 +1,7 @@
 EXTRA_DIST = \
-	src/systemd/rpm-ostree-build-monitor.service \
-	src/systemd/rpm-ostree-kinit.service \
-	src/systemd/rpm-ostree-kinit.timer
+	src/systemd/rpm-ostree-toolbox-build-monitor.service \
+	src/systemd/rpm-ostree-toolbox-kinit.service \
+	src/systemd/rpm-ostree-toolbox-kinit.timer
 
 SYSTEMD_UNIT_DIR = $(prefix)/lib/systemd/system
 
@@ -10,9 +10,9 @@ install-systemd: $(EXTRA_DIST)
 	$(INSTALL_DATA) $(EXTRA_DIST) $(DESTDIR)$(SYSTEMD_UNIT_DIR)/
 
 uninstall-systemd:
-	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-build-monitor.service
-	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-kinit.service
-	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-kinit.timer
+	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-build-monitor.service
+	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-kinit.service
+	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-kinit.timer
 	$(RMDIR) $(DESTDIR)$(SYSTEMD_UNIT_DIR) || :
 
 install-data-local: install-systemd

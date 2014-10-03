@@ -31,8 +31,8 @@ toolbox_privlibdir=$(libdir)/$(PACKAGE)
 toolbox_privlib_SCRIPTS = src/rpmqa-sorted 
 
 bin_SCRIPTS += rpm-ostree-toolbox \
-	src/scripts/rpm-ostree-build-monitor \
-	src/scripts/rpm-ostree-kinit \
+	src/scripts/rpm-ostree-toolbox-build-monitor \
+	src/scripts/rpm-ostree-toolbox-kinit \
 	$(NULL)
 
 jstoolboxdir=$(pkgdatadir)/js

@@ -74,8 +74,8 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %files
 %doc COPYING README.md
 %{_bindir}/rpm-ostree-toolbox
-%{_bindir}/rpm-ostree-kinit
-%{_bindir}/rpm-ostree-build-monitor
+%{_bindir}/rpm-ostree-toolbox-kinit
+%{_bindir}/rpm-ostree-toolbox-build-monitor
 %{_libdir}/%{name}/
 %{_datadir}/%{name}/
 %{_mandir}/man1/%{name}*.gz
@@ -85,9 +85,9 @@ getent passwd %{unprivileged_user} >/dev/null || \
 
 %config(noreplace) %{_sysconfdir}/%{name}.conf
 
-%{_unitdir}/rpm-ostree-kinit.service
-%{_unitdir}/rpm-ostree-kinit.timer
-%{_unitdir}/rpm-ostree-build-monitor.service
+%{_unitdir}/rpm-ostree-toolbox-kinit.service
+%{_unitdir}/rpm-ostree-toolbox-kinit.timer
+%{_unitdir}/rpm-ostree-toolbox-build-monitor.service
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1

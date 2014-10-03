@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# rpm-ostree-kinit - periodically refresh kerberos credentials
+# rpm-ostree-toolbox-kinit - periodically refresh kerberos credentials
 #
 # inputs: a config file (windows .ini format) with a [kerberos] section
 #         defining the following settings:

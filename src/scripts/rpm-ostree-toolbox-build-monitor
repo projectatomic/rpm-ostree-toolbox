@@ -76,7 +76,7 @@ def take_action(config,message):
 def listener(config):
     "Main entry point. Connects to QPID broker, waits for messages."
 
-    # This magic file is refreshed by rpm-ostree-kinit.
+    # This magic file is refreshed by rpm-ostree-toolbox-kinit.
     os.putenv('KRB5CCNAME', conf['kerberos']['cache_file'])
 
     dprint("About to Connect()")
