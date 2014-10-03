@@ -144,6 +144,7 @@ function createDisk(diskpath, cancellable, params) {
     let rootPartitionOffset = 2;
     gfHandle.part_add("/dev/sda", "p", bootOffset, rootOffset - 1);
     gfHandle.part_add("/dev/sda", "p", rootOffset, endOffset - 1);
+    gfHandle.part_set_mbr_id("/dev/sda", 2, 0x8e);
     if (bootsizeSectors > 0) {
 	gfHandle.mkfs("ext4", "/dev/sda1", new Guestfs.Mkfs({ features: "^64bit" }));
 	gfHandle.set_e2uuid("/dev/sda1", BOOT_UUID);
