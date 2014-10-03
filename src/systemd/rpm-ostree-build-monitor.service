@@ -1,0 +1,10 @@
+[Unit]
+Description=Monitor message bus, trigger compose
+Requires=rpm-ostree-kinit.timer
+
+[Service]
+Type=simple
+User=rpmostreecompose
+Group=rpmostreecompose
+EnvironmentFile=/etc/rpm-ostree-toolbox.conf
+ExecStart=/usr/bin/rpm-ostree-build-monitor -c $CONFIG

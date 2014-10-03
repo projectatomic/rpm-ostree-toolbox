@@ -19,6 +19,9 @@ BuildRequires: pkgconfig(ostree-1)
 BuildRequires: pkgconfig(libgsystem)
 BuildRequires: pkgconfig(json-glib-1.0)
 
+%global ostree_user  rpmostreecompose
+%global ostree_group rpmostreecompose
+
 Requires: python
 Requires: python-iniparse
 Requires: pygobject2
@@ -37,6 +40,13 @@ Requires: imagefactory-plugins-TinMan
 %else
 Requires: libguestfs-xfs
 %endif
+# Needed for rpmostree-build-monitor
+Requires:       python-qpid
+Requires:       cyrus-sasl-gssapi
+Requires:       python-saslwrapper
+Requires(pre):  shadow-utils
+Requires:       systemd-units
+Requires(post): systemd-units
 
 %description
 Various utilities and scripts for working with rpm-ostree based
@@ -53,12 +63,31 @@ make %{?_smp_mflags}
 %install
 make install DESTDIR=%{buildroot} INSTALL="install -p -c"
 
+%pre
+getent group %{ostree_group} >/dev/null || groupadd -r %{ostree_group}
+getent passwd %{ostree_user} >/dev/null || \
+  useradd -r -g %{ostree_group} -d %{_localstatedir}/lib/%{name} -s /sbin/nologin -c "RPM OStree Toolbox user" %{ostree_user}
+
+%post
+/bin/systemctl daemon-reload >/dev/null 2>&1 || :
+
 %files
 %doc COPYING README.md
 %{_bindir}/rpm-ostree-toolbox
+%{_bindir}/rpm-ostree-kinit
+%{_bindir}/rpm-ostree-build-monitor
 %{_libdir}/%{name}/
 %{_datadir}/%{name}/
 %{_mandir}/man1/%{name}*.gz
+
+%dir %{_localstatedir}/lib/%{name}
+%attr(0755,%{ostree_user},%{ostree_group}) %{_localstatedir}/lib/%{name}
+
+%config(noreplace) %{_sysconfdir}/%{name}.conf
+
+%{_unitdir}/rpm-ostree-kinit.service
+%{_unitdir}/rpm-ostree-kinit.timer
+%{_unitdir}/rpm-ostree-build-monitor.service
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1

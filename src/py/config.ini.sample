@@ -22,3 +22,66 @@ ref         = %(os_name)s/%(release)s/%(arch)s/%(tree_name)s
 [fedora-21]
 release = 21
 
+# For authenticating to message bus. atomic-build-monitor uses cache_file
+# when connecting to the qpid broker; atomic-kinit uses keytab + principal
+# to "top up" credentials in cache_file.
+[kerberos]
+keytab     = /etc/FIXME.keytab
+principal  = "FIXME/something@DOMAIN"
+cache_file = /tmp/krb5cc_rpmostreecompose
+
+# QPID connection settings
+[qpid]
+# Connection settings.
+host = FIXME
+port = 5671                    # 5671=ssl; not likely to change
+mechanism = 'GSSAPI'           # GSSAPI=Kerberos
+transport = 'ssl'              # not likely to change
+heartbeat = 15
+
+# Post-connection settings: these identify what we want to listen for.
+exchange = "FIXME"
+
+# For production use, make this a (UNIQUE!) constant string.
+# If unset, atomic-build-monitor will create a temporary queue name.
+#
+#queue_name = "foo.bar.fubar"
+
+# QPID magic. This is some sort of struct necessary for talking to
+# the message bus. Formatting here is purely for readability.
+# Do not mess with this unless you really, truly understand QPID.
+address_template = """
+%(queue_name)s; {
+    create: receiver,
+    node:   {
+        type:       queue,
+        durable:    %(durable)s,
+        x-declare:  {
+                      exclusive: True,
+                      auto-delete: %(autodelete)s,
+                      arguments: {
+                                   'qpid.policy_type': ring,
+                                   'qpid.max_size':    50000000
+                                 }
+                    },
+        x-bindings: [ {
+            exchange:  "%(exchange)s",
+            queue:     "%(queue_name)s",
+            arguments: {
+                x-match:   all,
+                method:    newRepo,
+                type:      TaskStateChange,
+                attribute: state,
+                new:       CLOSED
+            }
+        } ]
+    }
+}
+"""
+
+# Settings for the monitor script
+[monitor]
+# This will be eval'ed
+repo_is_what_we_want = '"atomic" in repo'
+# Action to take. Please make sure it returns quickly!
+trigger_command = /usr/bin/do-something-interesting

@@ -1,0 +1,146 @@
+#!/usr/bin/python
+#
+# rpm-ostree-build-monitor - listen on koji message bus, trigger compose
+#
+# This tool is part of the ostree build process. It is intended to
+# run 24x7, probably via systemd on a fixed internal host. It monitors
+# the QPID message bus, listening for koji newRepo completion events. When
+# it detects a desired repo, it triggers a new compose.
+#
+
+from configobj import ConfigObj
+import argparse
+import qpid.messaging
+import qpid.datatypes
+import sys
+import os
+
+# Script name, used in a few places
+progname = os.path.basename(sys.argv[0])
+
+###############################################################################
+# BEGIN Fault dictionary
+
+# If you see this message:
+#    qpid.messaging.exceptions.AuthenticationFailure: sasl negotiation failed: no mechanism agreed
+# ...you need to:
+#    # yum install python-saslwrapper
+
+# If you see this message:
+#    No worthy mechs found
+# ...you need to:
+#    # yum install cyrus-sasl-gssapi
+
+# END   Fault dictionary
+###############################################################################
+# BEGIN code
+
+def timestamp():
+    import time
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+def dprint(msg):
+    if os.getenv('DEBUG_BUILD_MONITOR'):
+        print timestamp(), " ", msg
+
+def is_what_we_want(config,message):
+    "Is this the kind of message we're looking for?"
+
+    content = message.content
+    # Content will be a deep structure; we're only interested in a
+    # small subset of it, ->info->request, which is the name of the repo.
+    # All newRepo messages will have this structure, but we check anyway.
+    if 'info' not in content:
+        return False
+    if 'request' not in content['info']:
+        return False
+    repo = content['info']['request'][0]
+
+    dprint("  repo=%s" % repo)
+
+    # Our config file defines a string expression which returns True/False, eg
+    #       repo_is_what_we_want = '"ostree-foo" in repo'
+    return eval(config['monitor']['repo_is_what_we_want'])
+
+def take_action(config,message):
+    "Invoke user-specified command, giving it the name of this repo"
+    repo = message.content['info']['request'][0]
+
+    command = [config['monitor']['trigger_command'], repo]
+    import subprocess
+    status = subprocess.call(command)
+    # FIXME: what to do if status is nonzero?
+    if status != 0:
+        print "***** YO! Command '%s' failed (status=%d)\n" % (command, status)
+
+def listener(config):
+    "Main entry point. Connects to QPID broker, waits for messages."
+
+    # This magic file is refreshed by rpm-ostree-kinit.
+    os.putenv('KRB5CCNAME', conf['kerberos']['cache_file'])
+
+    dprint("About to Connect()")
+    conn = qpid.messaging.Connection.establish(
+        host            = config['qpid']['host'],
+        port            = config['qpid']['port'],
+        sasl_mechanisms = config['qpid']['mechanism'],
+        transport       = config['qpid']['transport'],
+        heartbeat       = int(config['qpid']['heartbeat'])
+    )
+
+    dprint("About to conn.session()")
+    session = conn.session()
+
+    # In production, our config file will specify queue_name.
+    # For testing: if no queue_name specified, create a unique 'tmp.' one.
+    if 'queue_name' not in config['qpid'] or not config['qpid']['queue_name']:
+        config['qpid']['queue_name'] = "tmp.%s-%s-%d-%d" % \
+          (progname, os.uname()[1], os.getuid(), os.getpid())
+
+    # Durable queues: you probably don't have one.
+    durable = not('tmp.' in config['qpid']['queue_name'])
+    config['qpid']['durable']    = str(durable)
+    config['qpid']['autodelete'] = str(not(durable))
+
+    # configobj %(...)s interpolation happens now, at fetch time:
+    address = config['qpid']['address_template']
+    dprint("About to session.receiver()")
+    receiver = session.receiver(address)
+
+    while True:
+        dprint("About to receiver.fetch()")
+        message = receiver.fetch()
+
+        # Without this, if we restart this process, we'll keep getting
+        # old messages over and over
+        session.acknowledge(message)
+
+        if is_what_we_want(config,message):
+            take_action(config,message)
+
+    # Will never trigger; left in place for reference only
+    session.close()
+    conn.close()
+
+
+def main(config):
+    listener(config)
+
+#
+# Begin Here
+#
+if __name__ == "__main__":
+    # Read command-line options.
+    parser = argparse.ArgumentParser(
+        description='monitor message bus, trigger treecompose on <event>',
+        epilog='%(prog)s is intended to be run via systemd')
+    parser.add_argument('-c', '--config', type=file, required=True,
+                        help='path to config file')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='run verbosefulatiously')
+    args = parser.parse_args()
+
+    # Now read config options
+    conf = ConfigObj(args.config)
+
+    main(conf)

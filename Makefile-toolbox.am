@@ -31,6 +31,8 @@ toolbox_privlibdir=$(libdir)/$(PACKAGE)
 toolbox_privlib_SCRIPTS = src/rpmqa-sorted 
 
 bin_SCRIPTS += rpm-ostree-toolbox \
+	src/scripts/rpm-ostree-build-monitor \
+	src/scripts/rpm-ostree-kinit \
 	$(NULL)
 
 jstoolboxdir=$(pkgdatadir)/js
@@ -93,3 +95,8 @@ pytoolboxdatavagrant_DATA = \
 	src/py/vagrant/vagrant-prep \
 	src/py/vagrant/vagrant-prep.service \
 	$(NULL)
+
+install-varlib-hook:
+	mkdir -p $(DESTDIR)$(localstatedir)/lib/rpm-ostree-toolbox
+
+INSTALL_DATA_HOOKS += install-varlib-hook

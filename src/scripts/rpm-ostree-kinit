@@ -1,0 +1,61 @@
+#!/usr/bin/python
+#
+# rpm-ostree-kinit - periodically refresh kerberos credentials
+#
+# inputs: a config file (windows .ini format) with a [kerberos] section
+#         defining the following settings:
+#           * keytab - path to a kerberos keytab file, readable by us
+#           * principal - name of the principal we want from this keytab.
+#             (yes, we can get it via 'klist -k /path/to/foo.keytab',
+#             but it's possible for a keytab to have multiple principals).
+#           * cache_file - path to a tmp file in which kinit will
+#             store the kerberos magic.
+#
+# outputs: kinit will store <kerberos magic> in <cache_file>. Another
+#          process can then setenv KRB5CCNAME=<cache_file> and be
+#          able to authenticate as <principal>.
+#
+from configobj import ConfigObj
+import argparse
+import os
+import subprocess
+
+# FIXME: better way to hardcode defaults?
+global config_file, verbose
+config_file = '/etc/rpm-ostree.conf'
+verbose     = False
+
+def refresh_kerberos():
+    """Runs kinit, given settings from config file"""
+    conf = ConfigObj(config_file)
+
+    # This is our output (technically a side effect). kinit stores
+    # magic juju in this file.
+    os.putenv('KRB5CCNAME', conf['kerberos']['cache_file'])
+
+    # This defines how the juju gets into the cache file
+    keytab    = conf['kerberos']['keytab']
+    principal = conf['kerberos']['principal']
+
+    kinit = ['kinit', principal, '-k', '-t', keytab]
+    if verbose:
+        print '$ %s\n' % subprocess.list2cmdline(kinit)
+    subprocess.check_call(kinit)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        description='periodically refresh kerberos credentials',
+        epilog='%(prog)s is intended to be run via systemd')
+    parser.add_argument('-c', '--config', type=file,
+                        default=config_file,
+                        help='path to config file')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='display kinit command before running')
+    args = parser.parse_args()
+
+    if args.config:
+        config_file = args.config
+    if args.verbose:
+        verbose = True
+
+    refresh_kerberos()
