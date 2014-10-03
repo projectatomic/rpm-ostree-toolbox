@@ -19,8 +19,8 @@ BuildRequires: pkgconfig(ostree-1)
 BuildRequires: pkgconfig(libgsystem)
 BuildRequires: pkgconfig(json-glib-1.0)
 
-%global ostree_user  rpmostreecompose
-%global ostree_group rpmostreecompose
+%global unprivileged_user rpmostreecompose
+%global unprivileged_group rpmostreecompose
 
 Requires: python
 Requires: python-iniparse
@@ -64,9 +64,9 @@ make %{?_smp_mflags}
 make install DESTDIR=%{buildroot} INSTALL="install -p -c"
 
 %pre
-getent group %{ostree_group} >/dev/null || groupadd -r %{ostree_group}
-getent passwd %{ostree_user} >/dev/null || \
-  useradd -r -g %{ostree_group} -d %{_localstatedir}/lib/%{name} -s /sbin/nologin -c "RPM OStree Toolbox user" %{ostree_user}
+getent group %{unprivileged_group} >/dev/null || groupadd -r %{unprivileged_group}
+getent passwd %{unprivileged_user} >/dev/null || \
+  useradd -r -g %{unprivileged_group} -d %{_localstatedir}/lib/%{name} -s /sbin/nologin -c "RPM OStree Toolbox user" %{unprivileged_user}
 
 %post
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
@@ -81,7 +81,7 @@ getent passwd %{ostree_user} >/dev/null || \
 %{_mandir}/man1/%{name}*.gz
 
 %dir %{_localstatedir}/lib/%{name}
-%attr(0755,%{ostree_user},%{ostree_group}) %{_localstatedir}/lib/%{name}
+%attr(0755,%{unprivileged_user},%{unprivileged_group}) %{_localstatedir}/lib/%{name}
 
 %config(noreplace) %{_sysconfdir}/%{name}.conf
 
