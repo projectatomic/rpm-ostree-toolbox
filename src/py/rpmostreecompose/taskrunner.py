@@ -91,14 +91,18 @@ class TaskRunner(object):
             logging.info("task %s exited with error: %s" % (task.taskdef.name, str(e)))
             success = False
 
+        taskname = task.taskdef.name
+
+        del self._active[taskname]
+
         try:
-            self._queued.remove(task.taskdef.name)
+            self._queued.remove(taskname)
             was_queued = True
         except KeyError, e:
             was_queued = False
 
         if was_queued:
-            self.trigger(task.taskname)
+            self.trigger(taskname)
 
     def trigger(self, taskname):
         taskdef = self._taskdefs[taskname]
