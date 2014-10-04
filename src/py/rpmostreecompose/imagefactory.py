@@ -161,7 +161,7 @@ class ImageFactoryTask(TaskBase):
                           'OSTREE_REF':  self.tree_name,
                           'OSTREE_OSNAME':  self.os_name }
         for subname, subval in substitutions.iteritems():
-            kickstart = kickstart.replace(subname, subval)
+            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
         parameters =  { "install_script": kickstart, 
                         "generate_icicle": False,
