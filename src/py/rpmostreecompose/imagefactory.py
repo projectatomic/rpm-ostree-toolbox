@@ -155,18 +155,26 @@ class ImageFactoryTask(TaskBase):
         httpd_port = open(port_file_path).read().strip()
         print "trivial httpd port=%s" % (httpd_port, )
 
+        flattened_ks = os.path.join(tmpdir, os.path.basename(ksfile))
+
+        # FIXME - eventually stop hardcoding this via some mapping
+        kickstart_version = 'RHEL7'
+        run_sync(['ksflatten', '--version', kickstart_version,
+                  '-c', ksfile, '-o', flattened_ks])
+
         # TODO: Pull kickstart from separate git repo
-        kickstart = open(ksfile).read()
+        ksdata = open(flattened_ks).read()
         substitutions = { 'OSTREE_PORT': httpd_port,
                           'OSTREE_REF':  self.tree_name,
                           'OSTREE_OSNAME':  self.os_name }
         for subname, subval in substitutions.iteritems():
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
-        parameters =  { "install_script": kickstart, 
+        parameters =  { "install_script": ksdata, 
                         "generate_icicle": False,
                       }
 
+        print "Starting build"
         image_path = self.builder.build(template=open(self._tdl).read(),
                                         parameters=parameters)
         shutil.copyfile(image_path, target)
