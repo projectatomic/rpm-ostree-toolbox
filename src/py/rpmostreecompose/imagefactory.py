@@ -150,7 +150,7 @@ class ImageFactoryTask(TaskBase):
         subprocess.check_call(['ostree',
                                'trivial-httpd', '--autoexit', '--daemonize',
                                '--port-file', port_file_path],
-                              cwd=self.ostree_repo + '/..')
+                              cwd=self.ostree_repo)
 
         httpd_port = open(port_file_path).read().strip()
         print "trivial httpd port=%s" % (httpd_port, )
