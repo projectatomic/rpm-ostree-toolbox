@@ -60,10 +60,10 @@ class TaskRunner(object):
         self._task_queuetimes = {}
         self._inbox_monitor = None
 
-        self._load_taskdefs()
-
-    def _load_taskdefs(self):
+    def load_taskdefs(self):
         for child in os.listdir(self._taskspath):
+            if child in self._taskdefs:
+                continue
             taskdef_path = os.path.join(self._taskspath, child, 'taskdef.conf')
             if not os.path.exists(taskdef_path):
                 logging.warn("Task directory '%s' exists but has no taskdef.conf",
@@ -163,6 +163,11 @@ def main():
     parser.add_argument('inbox', type=str, help='Monitor this directory for tasks')
     args = parser.parse_args()
     runner = TaskRunner(args.root)
+
+    runner.define('treecompose', ['rpm-ostree-toolbox', 'treecompose', '-c', args.root + '/config.ini'])
+
+    runner.load_taskdefs()
+
     runner.monitor_taskdir(args.inbox)
     mainctx = GLib.MainContext.default()
     logging.info("Awaiting events")
