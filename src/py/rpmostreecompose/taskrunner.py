@@ -40,7 +40,6 @@ class Task(object):
         self.proc = None
     
     def spawn(self):
-        print "%r" % (self.taskdef.cmdline, )
         ctx = GSystem.SubprocessContext(argv=self.taskdef.cmdline)
         ctx.set_cwd(self.path)
         ctx.set_stdout_file_path(os.path.join(self.path, 'output.txt'))
