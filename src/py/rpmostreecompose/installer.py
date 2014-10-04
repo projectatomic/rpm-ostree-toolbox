@@ -33,8 +33,7 @@ class Composer(object):
     ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
               'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
-              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
-              'cmd_ostree', 'cmd_rpm_ostree', 'cmd_lorax', 
+              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy'
             ]
 
     def __init__(self, configfile, release):
@@ -43,10 +42,7 @@ class Composer(object):
                      'pkgdatadir':  os.environ['OSTBUILD_DATADIR'],
                      'rpmostree_cache_dir': os.path.join(os.getcwd(), release, 'cache'),
                      'yum_baseurl': None,
-                     'local_overrides': None,
-                     'cmd_ostree'     : 'ostree',
-                     'cmd_rpm_ostree' : 'rpm-ostree',
-                     'cmd_lorax'      : 'lorax',
+                     'local_overrides': None
                    }
 
         if not os.path.exists(configfile):
@@ -78,13 +74,6 @@ class Composer(object):
             self.workdir = tempfile.mkdtemp('.tmp', 'atomic-treecompose')
             self.workdir_is_tmp = True
 
-        for cmd in (self.cmd_ostree, self.cmd_rpm_ostree, self.cmd_lorax):
-            if os.path.isfile(cmd):
-                continue
-            if distutils.spawn.find_executable(cmd):
-                continue
-            fail_msg("Command not found: " + cmd)
-
         return
 
     @property
@@ -94,7 +83,7 @@ class Composer(object):
             # confused.
             shutil.rmtree(self.rpmostree_cache_dir)
             os.makedirs(self.ostree_repo)
-            subprocess.check_call([self.cmd_ostree, 'init',
+            subprocess.check_call(['ostree', 'init',
                                    "--repo="+self.ostree_repo])
         if self._repo is None:
             self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
