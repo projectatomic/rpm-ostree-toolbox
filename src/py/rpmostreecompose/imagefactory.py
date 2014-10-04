@@ -157,7 +157,11 @@ class ImageFactoryTask(TaskBase):
 
         # TODO: Pull kickstart from separate git repo
         kickstart = open(ksfile).read()
-        kickstart = kickstart.replace('@OSTREE_PORT@', httpd_port)
+        substitutions = { 'OSTREE_PORT': httpd_port,
+                          'OSTREE_REF':  self.tree_name,
+                          'OSTREE_OSNAME':  self.os_name }
+        for subname, subval in substitutions.iteritems():
+            kickstart = kickstart.replace(subname, subval)
 
         parameters =  { "install_script": kickstart, 
                         "generate_icicle": False,
