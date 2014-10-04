@@ -33,6 +33,8 @@ from imgfac.PluginManager import PluginManager
 from imgfac.ApplicationConfiguration import ApplicationConfiguration
 import logging
 
+from .taskbase import TaskBase
+
 from .utils import run_sync, fail_msg
 
 class ImgBuilder(object):
@@ -111,74 +113,7 @@ class KojiBuilder(ImgBuilder):
         pass
 
 
-class Composer(object):
-    ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
-              'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
-              'tree_name', 'tree_file', 'arch', 'release', 'ref',
-              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy'
-            ]
-
-    def __init__(self, configfile, name=None, kickstart=None, release=None,
-                 tdl=None):
-        self._repo = None
-        self._name = name
-        self._tdl = tdl
-        self._kickstart = kickstart
-        defaults = { 'workdir': None,
-                     'pkgdatadir':  os.environ['OSTBUILD_DATADIR'],
-                     'rpmostree_cache_dir': os.path.join(os.getcwd(), release, 'cache'),
-                     'yum_baseurl': None,
-                     'local_overrides': None
-                   }
-
-        if not os.path.exists(configfile):
-            fail_msg("No config file: " + configfile)
-
-        settings = iniparse.ConfigParser()
-        settings.read(configfile)
-        for attr in self.ATTRS:
-            try:
-                val = settings.get(release, attr)
-            except (iniparse.NoOptionError, iniparse.NoSectionError), e:
-                try:
-                    val = settings.get('DEFAULT', attr)
-                except iniparse.NoOptionError, e:
-                    val = defaults.get(attr)
-            setattr(self, attr, val)
-
-        if not self.yum_baseurl:
-            if self.release in [ '21', 'rawhide' ]:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/development/%s/%s/os/' % (self.release, self.arch)
-            else:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/releases/%s/%s/os/' % (self.release, self.arch)
-
-        if self.http_proxy:
-            os.environ['http_proxy'] = self.http_proxy
-
-        self.workdir_is_tmp = False
-        if self.workdir is None:
-            self.workdir = tempfile.mkdtemp('.tmp', 'atomic-treecompose')
-            self.workdir_is_tmp = True
-
-        return
-
-    @property
-    def repo(self):
-        if not os.path.exists(self.ostree_repo):
-            #  Remove the cache, if the repo. is gone ... or rpm-ostree is very
-            # confused.
-            shutil.rmtree(self.rpmostree_cache_dir)
-            os.makedirs(self.ostree_repo)
-            subprocess.check_call(['ostree', 'init',
-                                   "--repo="+self.ostree_repo])
-        if self._repo is None:
-            self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
-            self._repo.open(None)
-        return self._repo
-
-    def show_config(self):
-        print "\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ])
-
+class ImageFactoryTask(TaskBase):
     def create_disks(self):
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
@@ -241,10 +176,6 @@ class Composer(object):
         else:
             return KojiBuilder()
 
-    def cleanup(self):
-        if self.workdir_is_tmp:
-            shutil.rmtree(self.workdir)
-
 ## End Composer
 
 def main():
@@ -257,10 +188,10 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
 
-    composer = Composer(args.config, name=args.name,
-                        kickstart=args.kickstart,
-                        tdl=args.tdl,
-                        release=args.release)
+    composer = ImageFactoryTask(args.config, name=args.name,
+                                kickstart=args.kickstart,
+                                tdl=args.tdl,
+                                release=args.release)
     composer.show_config()
 
     composer.create_disks()

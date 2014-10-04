@@ -27,90 +27,25 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
 
+from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
-class Composer(object):
-    ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
-              'rpmostree_cache_dir', 'os_name', 'os_pretty_name',
-              'tree_name', 'tree_file', 'arch', 'release', 'ref',
-              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy'
-            ]
-
-    def __init__(self, configfile, release):
-        self._repo = None
-        defaults = { 'workdir': None,
-                     'pkgdatadir':  os.environ['OSTBUILD_DATADIR'],
-                     'rpmostree_cache_dir': os.path.join(os.getcwd(), release, 'cache'),
-                     'yum_baseurl': None,
-                     'local_overrides': None
-                   }
-
-        if not os.path.exists(configfile):
-            fail_msg("No config file: " + configfile)
-
-        settings = iniparse.ConfigParser()
-        settings.read(configfile)
-        for attr in self.ATTRS:
-            try:
-                val = settings.get(release, attr)
-            except (iniparse.NoOptionError, iniparse.NoSectionError), e:
-                try:
-                    val = settings.get('DEFAULT', attr)
-                except iniparse.NoOptionError, e:
-                    val = defaults.get(attr)
-            setattr(self, attr, val)
-
-        if not self.yum_baseurl:
-            if self.release in [ '21', 'rawhide' ]:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/development/%s/%s/os/' % (self.release, self.arch)
-            else:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/releases/%s/%s/os/' % (self.release, self.arch)
-
-        if self.http_proxy:
-            os.environ['http_proxy'] = self.http_proxy
-
-        self.workdir_is_tmp = False
-        if self.workdir is None:
-            self.workdir = tempfile.mkdtemp('.tmp', 'atomic-treecompose')
-            self.workdir_is_tmp = True
-
-        return
-
-    @property
-    def repo(self):
-        if not os.path.exists(self.ostree_repo):
-            #  Remove the cache, if the repo. is gone ... or rpm-ostree is very
-            # confused.
-            shutil.rmtree(self.rpmostree_cache_dir)
-            os.makedirs(self.ostree_repo)
-            subprocess.check_call(['ostree', 'init',
-                                   "--repo="+self.ostree_repo])
-        if self._repo is None:
-            self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
-            self._repo.open(None)
-        return self._repo
-
-    def show_config(self):
-        print "\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ])
-
+class Treecompose(TaskBase):
     def compose_tree(self):
         # XXX: rpm-ostree should be handling this, I think
-        if not os.path.exists(self.rpmostree_cache_dir):
-            os.makedirs(self.rpmostree_cache_dir)
+        rpmostreecachedir = os.path.join(self.cachedir, 'rpm-ostree')
+        if not os.path.exists(rpmostreecachedir):
+            os.makedirs(rpmostreecachedir)
         _,origrev = self.repo.resolve_rev(self.ref, True)
         if not self.tree_file:
             self.tree_file = '%s/%s-%s.json' % (self.pkgdatadir, self.os_name,
                                                 self.tree_name)
-        subprocess.check_call([self.cmd_rpm_ostree, 'compose', 'tree',
+        subprocess.check_call(['rpm-ostree', 'compose', 'tree',
                                '--repo=' + self.ostree_repo,
-                               '--cachedir=' + self.rpmostree_cache_dir,
+                               '--cachedir=' + rpmostreecachedir,
                                self.tree_file])
         _,newrev = self.repo.resolve_rev(self.ref, True)
         return (origrev, newrev)
-
-    def cleanup(self):
-        if self.workdir_is_tmp:
-            shutil.rmtree(self.workdir)
 
 ## End Composer
 
@@ -121,7 +56,7 @@ def main():
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
 
-    composer = Composer(args.config, args.release)
+    composer = Treecompose(args.config, release=args.release)
     composer.show_config()
 
     origrev, newrev = composer.compose_tree()
