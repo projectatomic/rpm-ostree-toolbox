@@ -155,10 +155,14 @@ class ImageFactoryTask(TaskBase):
         httpd_port = open(port_file_path).read().strip()
         print "trivial httpd port=%s" % (httpd_port, )
 
-        flattened_ks = os.path.join(tmpdir, os.path.basename(ksfile))
+        ks_basename = os.path.basename(ksfile)
+        flattened_ks = os.path.join(tmpdir, ks_basename)
 
         # FIXME - eventually stop hardcoding this via some mapping
-        kickstart_version = 'RHEL7'
+        if ks_basename.find('fedora') >= 0:
+            kickstart_version = 'F21'
+        else:
+            kickstart_version = 'RHEL7'
         run_sync(['ksflatten', '--version', kickstart_version,
                   '-c', ksfile, '-o', flattened_ks])
 
