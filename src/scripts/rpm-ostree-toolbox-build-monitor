@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# rpm-ostree-build-monitor - listen on koji message bus, trigger compose
+# rpm-ostree-toolbox-build-monitor - listen on koji message bus, trigger compose
 #
 # This tool is part of the ostree build process. It is intended to
 # run 24x7, probably via systemd on a fixed internal host. It monitors
