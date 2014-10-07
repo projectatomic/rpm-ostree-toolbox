@@ -3,7 +3,7 @@
 outputdir   =
 # workdir     = os.getcwd()
 # srcdir      = os.path.join(os.path.dirname(sys.argv[0], '..')
-cache_dir = %(workdir)s/cache
+rpmostree_cache_dir = %(workdir)s/cache
 ostree_repo = %(outputdir)s/repo
 os_name     = fedora-atomic
 os_pretty_name = Fedora Atomic

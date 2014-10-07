@@ -28,7 +28,7 @@ from gi.repository import Gio, OSTree, GLib
 import iniparse
 
 class TaskBase(object):
-    ATTRS = [ 'outputdir', 'workdir', 'pkgdatadir', 'ostree_repo',
+    ATTRS = [ 'outputdir', 'workdir', 'rpmostree_cache_dir', 'pkgdatadir', 'ostree_repo',
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy'
