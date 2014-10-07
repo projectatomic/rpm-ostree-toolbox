@@ -72,7 +72,7 @@ getent passwd %{unprivileged_user} >/dev/null || \
 /bin/systemctl daemon-reload >/dev/null 2>&1 || :
 
 %files
-%doc COPYING README.md
+%doc COPYING README.md src/py/config.ini.sample
 %{_bindir}/rpm-ostree-toolbox
 %{_bindir}/rpm-ostree-toolbox-kinit
 %{_bindir}/rpm-ostree-toolbox-build-monitor

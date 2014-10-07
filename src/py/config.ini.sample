@@ -22,13 +22,12 @@ ref         = %(os_name)s/%(release)s/%(arch)s/%(tree_name)s
 [fedora-21]
 release = 21
 
-# For authenticating to message bus. atomic-build-monitor uses cache_file
-# when connecting to the qpid broker; atomic-kinit uses keytab + principal
-# to "top up" credentials in cache_file.
+# For authenticating to message bus. rpm-ostree-toolbox-kinit uses
+# these settings to write credentials into $KRB5CCNAME, which must
+# point to a file that can be shared with rpm-ostree-toolbox-build-monitor
 [kerberos]
 keytab     = /etc/FIXME.keytab
 principal  = "FIXME/something@DOMAIN"
-cache_file = /tmp/krb5cc_rpmostreecompose
 
 # QPID connection settings
 [qpid]

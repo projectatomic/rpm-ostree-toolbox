@@ -76,8 +76,10 @@ def take_action(config,message):
 def listener(config):
     "Main entry point. Connects to QPID broker, waits for messages."
 
-    # This magic file is refreshed by rpm-ostree-toolbox-kinit.
-    os.putenv('KRB5CCNAME', conf['kerberos']['cache_file'])
+    # At this point we must have $KRB5CCNAME defined and pointing to
+    # a valid Kerberos credential cache file.
+    if os.getenv("KRB5CCNAME") is None:
+        print >> sys.stderr, "%s: WARNING: KRB5CCNAME envariable is not set, QPID connection is likely to fail!" % progname
 
     dprint("About to Connect()")
     conn = qpid.messaging.Connection.establish(

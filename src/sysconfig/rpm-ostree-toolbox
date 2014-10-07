@@ -1,4 +1,14 @@
 # This is a sysconfig file, not an actual config file.
-# It contains a single setting, an envariable $CONFIG
-# which will point to the actual .ini file
+# It contains environment variables which systemd will set
+# and which will be used by rpm-ostree-toolbox processes.
+#
+# This is the path to a .ini-format file containing settings
+# for rpm-ostree-toolbox-kinit and rpm-ostree-toolbox-build-monitor.
+# See /usr/share/doc/rpm-ostree-toolbox*/config.ini.sample
 CONFIG=/etc/rpm-ostree-toolbox.ini
+#
+# This is the path to a volatile (ie tmp) file which will be
+# populated with Kerberos magic by rpm-ostree-toolbox-kinit
+# and read by rpm-ostree-toolbox-build-monitor to connect
+# to the message bus broker.
+KRB5CCNAME=/tmp/krb5cc_FIXME
