@@ -2,10 +2,14 @@
 # It contains environment variables which systemd will set
 # and which will be used by rpm-ostree-toolbox processes.
 #
+# Please copy it to /etc/sysconfig/rpm-ostree-toolbox-$INSTANCE ,
+# where $INSTANCE is a name of your choice, and update the
+# two settings below.
+#
 # This is the path to a .ini-format file containing settings
 # for rpm-ostree-toolbox-kinit and rpm-ostree-toolbox-build-monitor.
 # See /usr/share/doc/rpm-ostree-toolbox*/config.ini.sample
-CONFIG=/etc/rpm-ostree-toolbox.ini
+CONFIG=/etc/rpm-ostree-toolbox-INSTANCE.ini
 #
 # This is the path to a volatile (ie tmp) file which will be
 # populated with Kerberos magic by rpm-ostree-toolbox-kinit

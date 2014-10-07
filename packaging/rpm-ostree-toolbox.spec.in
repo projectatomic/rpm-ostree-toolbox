@@ -83,11 +83,11 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %dir %{_localstatedir}/lib/%{name}
 %attr(0755,%{unprivileged_user},%{unprivileged_group}) %{_localstatedir}/lib/%{name}
 
-%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
+%config %{_sysconfdir}/sysconfig/%{name}-template
 
-%{_unitdir}/rpm-ostree-toolbox-kinit.service
-%{_unitdir}/rpm-ostree-toolbox-kinit.timer
-%{_unitdir}/rpm-ostree-toolbox-build-monitor.service
+%{_unitdir}/rpm-ostree-toolbox-kinit@.service
+%{_unitdir}/rpm-ostree-toolbox-kinit@.timer
+%{_unitdir}/rpm-ostree-toolbox-build-monitor@.service
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1
