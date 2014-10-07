@@ -83,7 +83,7 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %dir %{_localstatedir}/lib/%{name}
 %attr(0755,%{unprivileged_user},%{unprivileged_group}) %{_localstatedir}/lib/%{name}
 
-%config(noreplace) %{_sysconfdir}/%{name}.conf
+%config(noreplace) %{_sysconfdir}/sysconfig/%{name}
 
 %{_unitdir}/rpm-ostree-toolbox-kinit.service
 %{_unitdir}/rpm-ostree-toolbox-kinit.timer

@@ -6,5 +6,5 @@ Requires=rpm-ostree-toolbox-kinit.timer
 Type=simple
 User=rpmostreecompose
 Group=rpmostreecompose
-EnvironmentFile=/etc/rpm-ostree-toolbox.conf
+EnvironmentFile=/etc/sysconfig/rpm-ostree-toolbox
 ExecStart=/usr/bin/rpm-ostree-toolbox-build-monitor -c $CONFIG
