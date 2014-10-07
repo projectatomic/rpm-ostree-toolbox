@@ -33,7 +33,7 @@ from .utils import run_sync, fail_msg
 class Treecompose(TaskBase):
     def compose_tree(self):
         # XXX: rpm-ostree should be handling this, I think
-        rpmostreecachedir = os.path.join(self.cachedir, 'rpm-ostree')
+        rpmostreecachedir = self.rpmostree_cache_dir
         if not os.path.exists(rpmostreecachedir):
             os.makedirs(rpmostreecachedir)
         _,origrev = self.repo.resolve_rev(self.ref, True)
