@@ -169,7 +169,7 @@ class ImageFactoryTask(TaskBase):
         # TODO: Pull kickstart from separate git repo
         ksdata = open(flattened_ks).read()
         substitutions = { 'OSTREE_PORT': httpd_port,
-                          'OSTREE_REF':  self.tree_name,
+                          'OSTREE_REF':  self.ref,
                           'OSTREE_OSNAME':  self.os_name }
         for subname, subval in substitutions.iteritems():
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
