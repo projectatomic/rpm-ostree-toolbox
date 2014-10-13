@@ -128,7 +128,8 @@ class ImageFactoryTask(TaskBase):
             os.makedirs(imagedir)
 
         imagestmpdir = os.path.join(self.workdir, 'images')
-        os.mkdir(imagestmpdir)
+        if not os.path.exists(imagestmpdir):
+            os.mkdir(imagestmpdir)
 
         generated = []
 

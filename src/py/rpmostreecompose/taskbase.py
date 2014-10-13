@@ -26,6 +26,7 @@ import subprocess
 import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
+from .utils import fail_msg
 
 class TaskBase(object):
     ATTRS = [ 'outputdir', 'workdir', 'rpmostree_cache_dir', 'pkgdatadir', 'ostree_repo',
