@@ -33,17 +33,21 @@ from .utils import run_sync, fail_msg
 class Treecompose(TaskBase):
     def compose_tree(self):
         # XXX: rpm-ostree should be handling this, I think
-        rpmostreecachedir = self.rpmostree_cache_dir
-        if not os.path.exists(rpmostreecachedir):
-            os.makedirs(rpmostreecachedir)
         _,origrev = self.repo.resolve_rev(self.ref, True)
         if not self.tree_file:
             self.tree_file = '%s/%s-%s.json' % (self.pkgdatadir, self.os_name,
                                                 self.tree_name)
-        subprocess.check_call(['rpm-ostree', 'compose', 'tree',
-                               '--repo=' + self.ostree_repo,
-                               '--cachedir=' + rpmostreecachedir,
-                               self.tree_file])
+        rpmostreecmd = ['rpm-ostree', 'compose', 'tree', '--repo=' + self.ostree_repo]
+
+        rpmostreecachedir = self.rpmostree_cache_dir
+        if rpmostreecachedir is not None:
+            cachecmd = '--cachedir=' + rpmostreecachedir
+            rpmostreecmd.append(cachecmd)
+            if not os.path.exists(rpmostreecachedir):
+                os.makedirs(rpmostreecachedir)
+        rpmostreecmd.append(self.tree_file)
+
+        subprocess.check_call(rpmostreecmd)
         _,newrev = self.repo.resolve_rev(self.ref, True)
         return (origrev, newrev)
 
