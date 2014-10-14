@@ -31,18 +31,12 @@ from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
 class InstallerTask(TaskBase):
-    def create_disks(self):
+    def create_disks(self, outputdir):
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
         commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
         print commitdate
-        # XXX - Define this somewhere?
-        imageoutputdir=os.path.join(self.outputdir, 'images')
-
-        imagedir = os.path.join(imageoutputdir, rev[:8])
-        if not os.path.exists(imagedir):
-            os.makedirs(imagedir)
 
         imagestmpdir = os.path.join(self.workdir, 'images')
         os.mkdir(imagestmpdir)
@@ -54,7 +48,7 @@ class InstallerTask(TaskBase):
         generated.append(imgtargetinstaller)
 
         for f in generated:
-            destpath = os.path.join(imagedir, os.path.basename(f))
+            destpath = os.path.join(outputdir, os.path.basename(f))
             print "Created: " + destpath
             shutil.move(f, destpath)
 
@@ -92,6 +86,7 @@ def main():
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
 
     composer = InstallerTask(args.config, release=args.release)
@@ -100,6 +95,6 @@ def main():
     origrev = None
     _,newrev = composer.repo.resolve_rev(composer.ref, True)
 
-    composer.create_disks()
+    composer.create_disks(args.outputdir)
 
     composer.cleanup()
