@@ -45,7 +45,7 @@ class Treecompose(TaskBase):
             rpmostreecmd.append(cachecmd)
             if not os.path.exists(rpmostreecachedir):
                 os.makedirs(rpmostreecachedir)
-        rpmostreecmd.append(self.tree_file)
+        rpmostreecmd.append(self.jsonfilename)
 
         subprocess.check_call(rpmostreecmd)
         _,newrev = self.repo.resolve_rev(self.ref, True)
