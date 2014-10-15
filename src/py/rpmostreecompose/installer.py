@@ -31,28 +31,13 @@ from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
 class InstallerTask(TaskBase):
-    def create_disks(self, outputdir):
+    def create(self, outputdir):
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
         commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
         print commitdate
 
-        imagestmpdir = os.path.join(self.workdir, 'images')
-        os.mkdir(imagestmpdir)
-
-        generated = []
-
-        imgtargetinstaller=os.path.join(imagestmpdir, 'install', '%s-installer.iso' % self.os_name)
-        self.create_installer_image(self.workdir, imgtargetinstaller)
-        generated.append(imgtargetinstaller)
-
-        for f in generated:
-            destpath = os.path.join(outputdir, os.path.basename(f))
-            print "Created: " + destpath
-            shutil.move(f, destpath)
-
-    def create_installer_image(self, tmpdir, target):
         lorax_opts = []
         if self.local_overrides:
             lorax_opts.extend([ '-s', self.local_overrides ])
@@ -63,7 +48,7 @@ class InstallerTask(TaskBase):
         if http_proxy:
             lorax_opts.extend([ '--proxy', http_proxy ])
 
-        lorax_workdir = os.path.join(tmpdir, 'lorax')
+        lorax_workdir = os.path.join(self.workdir, 'lorax')
         os.makedirs(lorax_workdir)
         run_sync(['lorax', '--nomacboot',
                   '--add-template=%s/lorax-embed-repo.tmpl' % self.pkgdatadir,
@@ -74,10 +59,15 @@ class InstallerTask(TaskBase):
                   '-r', self.release, '-s', self.yum_baseurl,
                   ] + lorax_opts + ['output'],
                  cwd=lorax_workdir)
-        os.makedirs(os.path.dirname(target))
-        # Right now we only take the boot.iso (which is really
-        # installer.iso since we used a template to inject data)
-        os.rename(lorax_workdir + '/output/images/boot.iso', target)
+        # We injected data into boot.iso, so it's now installer.iso
+        lorax_output = lorax_workdir + '/output'
+        lorax_images = lorax_output + '/images'
+        os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
+
+        for p in os.listdir(lorax_output):
+            print "Generated: " + p
+            shutil.move(os.path.join(lorax_output, p),
+                        os.path.join(outputdir, p))
 
 ## End Composer
 
@@ -92,9 +82,6 @@ def main():
     composer = InstallerTask(args.config, release=args.release)
     composer.show_config()
 
-    origrev = None
-    _,newrev = composer.repo.resolve_rev(composer.ref, True)
-
-    composer.create_disks(args.outputdir)
+    composer.create(args.outputdir)
 
     composer.cleanup()
