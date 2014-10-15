@@ -1,6 +1,7 @@
 [Unit]
 Description=Message bus monitor on %I
-Requires=rpm-ostree-toolbox-kinit@%i.timer
+Requires=rpm-ostree-toolbox-kinit@%i.timer rpm-ostree-toolbox-kinit@%i.service
+After=   rpm-ostree-toolbox-kinit@%i.timer rpm-ostree-toolbox-kinit@%i.service
 
 [Service]
 Type=simple
