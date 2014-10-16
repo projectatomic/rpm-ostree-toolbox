@@ -1,7 +1,7 @@
 EXTRA_DIST = \
-	src/systemd/rpm-ostree-toolbox-build-monitor.service \
-	src/systemd/rpm-ostree-toolbox-kinit.service \
-	src/systemd/rpm-ostree-toolbox-kinit.timer
+	$(srcdir)/src/systemd/rpm-ostree-toolbox-build-monitor.service \
+	$(srcdir)/src/systemd/rpm-ostree-toolbox-kinit.service \
+	$(srcdir)/src/systemd/rpm-ostree-toolbox-kinit.timer
 
 SYSTEMD_UNIT_DIR = $(prefix)/lib/systemd/system
 
