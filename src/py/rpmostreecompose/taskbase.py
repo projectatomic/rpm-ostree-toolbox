@@ -36,13 +36,8 @@ class TaskBase(object):
               'selinux'
             ]
 
-    def __init__(self, configfile, name=None, kickstart=None, release=None,
-                 tdl=None):
+    def __init__(self, configfile, release=None):
         self._repo = None
-        self._name = name
-        self._tdl = tdl
-        self._kickstart = kickstart
-
 
         assert release is not None
         defaults = { 'workdir': None,
