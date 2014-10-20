@@ -71,6 +71,7 @@ class ImgFacBuilder(ImgBuilder):
 
         logfile = os.path.join(kwargs['workdir'], 'imgfac.log')
 
+        print "ImgFacBuilder logging to: " + logfile
         self.fhandler = logging.FileHandler(logfile)
         self.tlog = logging.getLogger()
         self.tlog.setLevel(logging.DEBUG)
