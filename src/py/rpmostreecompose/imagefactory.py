@@ -126,7 +126,7 @@ class ImageFactoryTask(TaskBase):
         commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
         print commitdate
 
-        target=os.path.join(outputdir, '%s.qcow2' % (self._name))
+        target=os.path.join(outputdir, '%s.raw' % (self._name))
 
         port_file_path = self.workdir + '/repo-port'
         subprocess.check_call(['ostree',
