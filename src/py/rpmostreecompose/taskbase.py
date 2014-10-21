@@ -156,7 +156,7 @@ class TaskBase(object):
                 shutil.rmtree(self.rpmostree_cache_dir)
             os.makedirs(self.ostree_repo)
             subprocess.check_call(['ostree', 'init',
-                                   "--repo="+self.ostree_repo])
+                                   "--repo="+self.ostree_repo, '--mode=archive-z2'])
         if self._repo is None:
             self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
             self._repo.open(None)
