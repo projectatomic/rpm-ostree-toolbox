@@ -7,4 +7,3 @@ User=rpmostreecompose
 Group=rpmostreecompose
 EnvironmentFile=/etc/sysconfig/rpm-ostree-toolbox-%I
 ExecStart=/usr/bin/rpm-ostree-toolbox-kinit -c $CONFIG
-RemainAfterExit=yes

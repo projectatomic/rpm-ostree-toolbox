@@ -11,3 +11,6 @@ EnvironmentFile=/etc/sysconfig/rpm-ostree-toolbox-%I
 ExecStart=/usr/bin/rpm-ostree-toolbox-build-monitor -c $CONFIG
 Restart=on-failure
 RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
