@@ -31,28 +31,13 @@ from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
 class InstallerTask(TaskBase):
-    def create_disks(self, outputdir):
+    def create(self, outputdir, post=None):
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
         commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
         print commitdate
 
-        imagestmpdir = os.path.join(self.workdir, 'images')
-        os.mkdir(imagestmpdir)
-
-        generated = []
-
-        imgtargetinstaller=os.path.join(imagestmpdir, 'install', '%s-installer.iso' % self.os_name)
-        self.create_installer_image(self.workdir, imgtargetinstaller)
-        generated.append(imgtargetinstaller)
-
-        for f in generated:
-            destpath = os.path.join(outputdir, os.path.basename(f))
-            print "Created: " + destpath
-            shutil.move(f, destpath)
-
-    def create_installer_image(self, tmpdir, target):
         lorax_opts = []
         if self.local_overrides:
             lorax_opts.extend([ '-s', self.local_overrides ])
@@ -63,10 +48,20 @@ class InstallerTask(TaskBase):
         if http_proxy:
             lorax_opts.extend([ '--proxy', http_proxy ])
 
-        lorax_workdir = os.path.join(tmpdir, 'lorax')
+        template_src = self.pkgdatadir + '/lorax-embed-repo.tmpl'
+        template_dest = self.workdir + '/lorax-embed-repo.tmpl'
+        shutil.copy(template_src, template_dest)
+
+        if post is not None:
+            # Yeah, this is pretty awful.
+            post_str = '%r' % ('%post --erroronfail\n' + open(post).read() + '\n%end\n', )
+            with open(template_dest, 'a') as f:
+                f.write('\nappend usr/share/anaconda/interactive-defaults.ks %s\n' % (post_str, ))
+
+        lorax_workdir = os.path.join(self.workdir, 'lorax')
         os.makedirs(lorax_workdir)
         run_sync(['lorax', '--nomacboot',
-                  '--add-template=%s/lorax-embed-repo.tmpl' % self.pkgdatadir,
+                  '--add-template=%s' % template_dest,
                   '--add-template-var=ostree_osname=%s' % self.os_name,
                   '--add-template-var=ostree_repo=%s' % self.ostree_repo,
                   '--add-template-var=ostree_ref=%s' % self.ref,
@@ -74,10 +69,15 @@ class InstallerTask(TaskBase):
                   '-r', self.release, '-s', self.yum_baseurl,
                   ] + lorax_opts + ['output'],
                  cwd=lorax_workdir)
-        os.makedirs(os.path.dirname(target))
-        # Right now we only take the boot.iso (which is really
-        # installer.iso since we used a template to inject data)
-        os.rename(lorax_workdir + '/output/images/boot.iso', target)
+        # We injected data into boot.iso, so it's now installer.iso
+        lorax_output = lorax_workdir + '/output'
+        lorax_images = lorax_output + '/images'
+        os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
+
+        for p in os.listdir(lorax_output):
+            print "Generated: " + p
+            shutil.move(os.path.join(lorax_output, p),
+                        os.path.join(outputdir, p))
 
 ## End Composer
 
@@ -86,15 +86,13 @@ def main():
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--post', type=str, help='Run this %post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
 
     composer = InstallerTask(args.config, release=args.release)
     composer.show_config()
 
-    origrev = None
-    _,newrev = composer.repo.resolve_rev(composer.ref, True)
-
-    composer.create_disks(args.outputdir)
+    composer.create(args.outputdir, post=args.post)
 
     composer.cleanup()

@@ -11,9 +11,10 @@
 #           * cache_file - path to a tmp file in which kinit will
 #             store the kerberos magic.
 #
-# outputs: kinit will store <kerberos magic> in <cache_file>. Another
-#          process can then setenv KRB5CCNAME=<cache_file> and be
-#          able to authenticate as <principal>.
+# outputs: kinit will store <kerberos magic> in $KRB5CCNAME, which must be
+#          in our environment (probably set via systemd). Another process
+#          can setenv KRB5CCNAME to that same path, and be able to
+#          authenticate as <principal>.
 #
 from configobj import ConfigObj
 import argparse
@@ -28,10 +29,6 @@ verbose     = False
 def refresh_kerberos():
     """Runs kinit, given settings from config file"""
     conf = ConfigObj(config_file)
-
-    # This is our output (technically a side effect). kinit stores
-    # magic juju in this file.
-    os.putenv('KRB5CCNAME', conf['kerberos']['cache_file'])
 
     # This defines how the juju gets into the cache file
     keytab    = conf['kerberos']['keytab']

@@ -38,5 +38,5 @@ typelib_DATA = $(gir_DATA:.gir=.typelib)
 
 include Makefile-libtoolbox.am
 include Makefile-toolbox.am
-include src/conf/Makefile.am
+include src/sysconfig/Makefile.am
 include src/systemd/Makefile.am

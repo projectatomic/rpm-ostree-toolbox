@@ -1,6 +1,0 @@
-[Unit]
-Description=rpm-ostree-toolbox-kinit timer
-
-[Timer]
-OnUnitInactiveSec=2h
-Unit=rpm-ostree-toolbox-kinit.service

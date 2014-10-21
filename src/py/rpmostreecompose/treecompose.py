@@ -116,7 +116,7 @@ class Treecompose(TaskBase):
             rpmostreecmd.append(cachecmd)
             if not os.path.exists(rpmostreecachedir):
                 os.makedirs(rpmostreecachedir)
-        rpmostreecmd.append(self.tree_file)
+        rpmostreecmd.append(self.jsonfilename)
 
         subprocess.check_call(rpmostreecmd)
         _,newrev = self.repo.resolve_rev(self.ref, True)
@@ -126,7 +126,7 @@ class Treecompose(TaskBase):
 
 def main():
     parser = argparse.ArgumentParser(description='Compose OSTree tree')
-    parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
+    parser.add_argument('-c', '--config', type=str, default='config.ini', help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-V', '--version', type=str, default=None, help='Version to mark compose')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')

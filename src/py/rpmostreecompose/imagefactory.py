@@ -71,6 +71,7 @@ class ImgFacBuilder(ImgBuilder):
 
         logfile = os.path.join(kwargs['workdir'], 'imgfac.log')
 
+        print "ImgFacBuilder logging to: " + logfile
         self.fhandler = logging.FileHandler(logfile)
         self.tlog = logging.getLogger()
         self.tlog.setLevel(logging.DEBUG)
@@ -114,40 +115,20 @@ class KojiBuilder(ImgBuilder):
 
 
 class ImageFactoryTask(TaskBase):
-    def create_disks(self):
+    def create(self, outputdir, name, ksfile, tdl):
+        self._name = name
+        self._tdl = tdl
+        self._kickstart = ksfile 
+
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
         commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
         print commitdate
-        # XXX - Define this somewhere?
-        imageoutputdir=os.path.join(self.outputdir, 'images')
 
-        imagedir = os.path.join(imageoutputdir, rev[:8])
-        if not os.path.exists(imagedir):
-            os.makedirs(imagedir)
+        target=os.path.join(outputdir, '%s.raw' % (self._name))
 
-        imagestmpdir = os.path.join(self.workdir, 'images')
-        if not os.path.exists(imagestmpdir):
-            os.mkdir(imagestmpdir)
-
-        generated = []
-
-        imgtargetcloud=os.path.join(imagestmpdir, self._name, '%s.qcow2' % self.os_name)
-        self.create_cloud_image(self.workdir, imgtargetcloud, self._kickstart)
-        generated.append(imgtargetcloud)
-
-        for f in generated:
-            destpath = os.path.join(imagedir, os.path.basename(f))
-            print "Created: " + destpath
-            shutil.move(f, destpath)
-
-    def create_cloud_image(self, tmpdir, target, ksfile):
-        targetdir = os.path.dirname(target)
-        if not os.path.exists(targetdir):
-            os.makedirs(targetdir)
-
-        port_file_path = tmpdir + '/repo-port'
+        port_file_path = self.workdir + '/repo-port'
         subprocess.check_call(['ostree',
                                'trivial-httpd', '--autoexit', '--daemonize',
                                '--port-file', port_file_path],
@@ -157,7 +138,7 @@ class ImageFactoryTask(TaskBase):
         print "trivial httpd port=%s" % (httpd_port, )
 
         ks_basename = os.path.basename(ksfile)
-        flattened_ks = os.path.join(tmpdir, ks_basename)
+        flattened_ks = os.path.join(self.workdir, ks_basename)
 
         # FIXME - eventually stop hardcoding this via some mapping
         if ks_basename.find('fedora') >= 0:
@@ -200,17 +181,19 @@ def main():
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('--name', type=str, required=True, help='Image name') 
     parser.add_argument('--tdl', type=str, required=True, help='TDL file') 
+    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     parser.add_argument('-k', '--kickstart', type=str, required=True, help='Path to kickstart') 
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
 
-    composer = ImageFactoryTask(args.config, name=args.name,
-                                kickstart=args.kickstart,
-                                tdl=args.tdl,
-                                release=args.release)
+    composer = ImageFactoryTask(args.config, release=args.release)
     composer.show_config()
 
-    composer.create_disks()
-
-    composer.cleanup()
+    try:
+        composer.create(outputdir=args.outputdir,
+                        name=args.name,
+                        ksfile=args.kickstart,
+                        tdl=args.tdl)
+    finally:
+        composer.cleanup()
