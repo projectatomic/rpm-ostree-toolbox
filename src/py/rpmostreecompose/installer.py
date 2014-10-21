@@ -31,7 +31,7 @@ from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
 class InstallerTask(TaskBase):
-    def create(self, outputdir):
+    def create(self, outputdir, post=None):
         [res,rev] = self.repo.resolve_rev(self.ref, False)
         [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
@@ -48,10 +48,20 @@ class InstallerTask(TaskBase):
         if http_proxy:
             lorax_opts.extend([ '--proxy', http_proxy ])
 
+        template_src = self.pkgdatadir + '/lorax-embed-repo.tmpl'
+        template_dest = self.workdir + '/lorax-embed-repo.tmpl'
+        shutil.copy(template_src, template_dest)
+
+        if post is not None:
+            # Yeah, this is pretty awful.
+            post_str = '%r' % ('%post --erroronfail\n' + open(post).read() + '\n%end\n', )
+            with open(template_dest, 'a') as f:
+                f.write('\nappend usr/share/anaconda/interactive-defaults.ks %s\n' % (post_str, ))
+
         lorax_workdir = os.path.join(self.workdir, 'lorax')
         os.makedirs(lorax_workdir)
         run_sync(['lorax', '--nomacboot',
-                  '--add-template=%s/lorax-embed-repo.tmpl' % self.pkgdatadir,
+                  '--add-template=%s' % template_dest,
                   '--add-template-var=ostree_osname=%s' % self.os_name,
                   '--add-template-var=ostree_repo=%s' % self.ostree_repo,
                   '--add-template-var=ostree_ref=%s' % self.ref,
@@ -76,12 +86,13 @@ def main():
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--post', type=str, help='Run this %post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
 
     composer = InstallerTask(args.config, release=args.release)
     composer.show_config()
 
-    composer.create(args.outputdir)
+    composer.create(args.outputdir, post=args.post)
 
     composer.cleanup()
