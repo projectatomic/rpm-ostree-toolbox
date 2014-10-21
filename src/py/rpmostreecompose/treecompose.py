@@ -31,15 +31,13 @@ from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
 def _rev2version(repo, rev):
-    worked,oldrev = repo.resolve_rev(rev, True)
-    if not worked:
+    _,oldrev = repo.resolve_rev(rev, True)
+    if oldrev is None:
         return None
 
-    worked,coldrev = repo.load_variant(OSTree.ObjectType.COMMIT, oldrev)
-    if not worked:
-        return None
+    _,commit = repo.load_variant(OSTree.ObjectType.COMMIT, oldrev)
 
-    metadata = coldrev.get_child_value(0)
+    metadata = commit.get_child_value(0)
     version = metadata.lookup_value("version", None)
     if version is not None:
         version = version.get_string()
