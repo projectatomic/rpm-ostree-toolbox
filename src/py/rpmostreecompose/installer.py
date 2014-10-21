@@ -74,6 +74,17 @@ class InstallerTask(TaskBase):
         lorax_images = lorax_output + '/images'
         os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
 
+        treeinfo = lorax_output + '/.treeinfo'
+        treeinfo_tmp = treeinfo + '.tmp'
+        with open(treeinfo) as treein:
+            with open(treeinfo_tmp, 'w') as treeout:
+                for line in treein:
+                    if line.startswith('boot.iso'):
+                        treeout.write(line.replace('boot.iso', 'installer.iso'))
+                    else:
+                        treeout.write(line)
+        os.rename(treeinfo_tmp, treeinfo)
+
         for p in os.listdir(lorax_output):
             print "Generated: " + p
             shutil.move(os.path.join(lorax_output, p),
