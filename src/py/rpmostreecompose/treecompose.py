@@ -55,7 +55,12 @@ class Treecompose(TaskBase):
         loaded_version = _rev2version(self.repo, self.ref)
 
         # Load the old version from the tree...
-        if loaded_version and not self.tree_version:
+        if self.tree_version and self.tree_version.startswith('skip-or-'):
+            if not loaded_version:
+                self.tree_version = None
+            else:
+                self.tree_version = self.tree_version[len('skip-or-'):]
+        elif loaded_version and not self.tree_version:
             print >>sys.stderr, " WARNING: No version specified, but have old version in tree."
 
         try:
