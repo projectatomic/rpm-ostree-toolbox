@@ -61,7 +61,7 @@ class Treecompose(TaskBase):
             else:
                 self.tree_version = self.tree_version[len('skip-or-'):]
         elif loaded_version and not self.tree_version:
-            print >>sys.stderr, " WARNING: No version specified, but have old version in tree."
+            fail_msg("No version specified, but have old version in tree")
 
         try:
             lv = [int(x) for x in loaded_version.split('.', 3)]
