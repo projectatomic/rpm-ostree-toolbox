@@ -1,0 +1,271 @@
+#!/usr/bin/perl
+#
+# rpm-ostree-toolbox-git-monitor - listen for git-commit messages
+#
+# $Id$
+#
+package RpmOstreeToolbox::GitMonitor;
+
+use strict;
+use warnings;
+
+(our $ME = $0) =~ s|.*/||;
+(our $VERSION = '$Revision: 0.0 $ ') =~ tr/[0-9].//cd;
+
+# For debugging, show data structures using DumpTree($var)
+#use Data::TreeDumper; $Data::TreeDumper::Displayaddress = 0;
+
+###############################################################################
+# BEGIN user-customizable section
+
+# FIXME: this must match the one in our git hook
+our $Port = 8099;
+
+# Autoflush stdout, for immediate logging
+$| = 1;
+
+# END   user-customizable section
+###############################################################################
+
+use IO::Socket;
+
+###############################################################################
+# BEGIN boilerplate args checking, usage messages
+
+sub usage {
+    print  <<"END_USAGE";
+Usage: $ME [OPTIONS]
+
+$ME listens on a socket, waiting for
+connections from a git post-receive hook on a master repo.
+
+Upon connection we read a list of git branches, one per line.
+Branches are expected to be of the form 'foo', not 'refs/heads/foo'.
+Each line read from the socket will be immediately echoed to stdout;
+when running under systemd this will make it to the systemd journal.
+Another process (possibly more than one) will read from this journal
+and decide whether or not to trigger a tree compose.
+
+$ME is part of the rpm-ostree-toolbox package.
+It is intended to run via systemd.
+
+OPTIONS:
+
+  --port PORT    port on which to listen (default: $Port)
+
+  --help         display this message
+  --man          display program man page
+  --version      display program name and version
+END_USAGE
+
+    exit;
+}
+
+sub man {
+    # Read the POD contents.  If it hasn't been filled in yet, abort.
+    my $pod = do { local $/; <DATA>; };
+    if ($pod =~ /=head1 \s+ NAME \s+ FIXME/xm) {
+        warn "$ME: No man page available.  Please try $ME --help\n";
+        exit;
+    }
+
+    # Use Pod::Man to convert our __DATA__ section to *roff
+    eval { require Pod::Man }
+        or die "$ME: Cannot generate man page; Pod::Man unavailable: $@\n";
+    my $parser = Pod::Man->new(name => $ME, release => $VERSION, section => 1);
+
+    # If called without output redirection, man-ify.
+    my $out_fh;
+    if (-t *STDOUT) {
+        my $pager = $ENV{MANPAGER} || $ENV{PAGER} || 'less';
+        open $out_fh, "| nroff -man | $pager";
+    }
+    else {
+        open $out_fh, '>&STDOUT';
+    }
+
+    # Read the POD contents, and have Pod::Man read from fake filehandle.
+    # This requires 5.8.0.
+    open my $pod_handle, '<', \$pod;
+    $parser->parse_from_filehandle($pod_handle, $out_fh);
+    exit;
+}
+
+
+# Command-line options.  Note that this operates directly on @ARGV !
+our $debug   = 0;
+sub handle_opts {
+    use Getopt::Long;
+    GetOptions(
+        'port=i'     => \$Port,
+
+        'debug!'     => \$debug,
+
+        help         => \&usage,
+        man          => \&man,
+        version      => sub { print "$ME version $VERSION\n"; exit 0 },
+    ) or die "Try `$ME --help' for help\n";
+}
+
+# END   boilerplate args checking, usage messages
+###############################################################################
+
+############################## CODE BEGINS HERE ###############################
+
+# The term is "modulino".
+__PACKAGE__->main()                                     unless caller();
+
+# Main code.
+sub main {
+    # Note that we operate directly on @ARGV, not on function parameters.
+    # This is deliberate: it's because Getopt::Long only operates on @ARGV
+    # and there's no clean way to make it use @_.
+    handle_opts();                      # will set package globals
+
+    die "$ME: Too many arguments; try $ME --help\n"                 if @ARGV;
+
+    main_loop();
+}
+
+############
+#  logger  #  log a message
+############
+# In production, this just goes to systemd and one or more processes
+# can listen for events.
+sub logger {
+    # ...when run interactively (from a TTY), include our own timestamp.
+    print scalar(localtime), " " if -t *STDOUT;
+    print @_, "\n";
+}
+
+
+sub main_loop {
+    my $server = IO::Socket::INET->new(LocalAddr => '0.0.0.0',
+                                       LocalPort => $Port,
+                                       Proto     => 'tcp',
+                                       Listen    => 5,
+                                       Reuse     => 1,
+                                   )
+        or die "$ME: Could not listen on $Port: $@";
+
+    while (my ($client, $client_info) = $server->accept()) {
+        my ($port, $addr) = unpack_sockaddr_in($client_info);
+        my $ip = inet_ntoa($addr);
+
+        # Input timeout: prevent someone from DOSing us by
+        # telnet'ing to our port and just sitting there.
+        $SIG{ALRM} = sub {
+            logger("ip:$ip TIMEOUT");
+            $client->shutdown(SHUT_RDWR);
+        };
+        alarm 5;
+
+        # Read from remote. Input is expected to be one or more lines,
+        # each of which is a git branch name (eg 'master', 'foo').
+        while (my $line = <$client>) {
+            chomp $line;
+
+            # Humans can test via 'echo foo | nc HOST PORT' but some of us
+            # also use 'telnet HOST PORT'. The latter sends \r\n :-(
+            $line =~ s/\r+$//;
+
+            # Sanitize input. For our purposes, require branch names to be
+            # alphanumeric plus slash, dot, underscore, hyphen. Not quite
+            # the same as the full git fules (see git-check-ref-format),
+            # but good enough for us.
+            if ($line =~ m|^([\w/._-]{1,90})$|) {
+                logger("ip:$ip branch:$1");
+            }
+            else {
+                logger("ip:$ip branch:INVALID-INPUT");
+            }
+
+            # Restart the input timeout
+            alarm 5;
+        }
+        alarm 0;
+        $client->shutdown(SHUT_RDWR);
+    }
+}
+
+
+1;
+
+__DATA__
+
+###############################################################################
+#
+# Documentation
+#
+
+=head1	NAME
+
+FIXME - description of what this script does
+
+=head1	SYNOPSIS
+
+FIXME [B<--foo>]  [B<--bar>]  [B<--verbose>] ARG1 [ARG2...] FIXME
+
+FIXME  B<--help>  |  B<--version> | B<--man>
+
+=head1	DESCRIPTION
+
+B<FIXME> grobbles the frobniz on alternate Tuesdays, except where
+prohibited by law.
+
+=head1	OPTIONS
+
+=over 4
+
+=item B<--foo>
+
+FIXME
+
+=item B<--verbose>
+
+Show progress messages.
+
+=item B<--help>
+
+Emit usage hints.
+
+=item B<--version>
+
+Display program version.
+
+=item B<--man>
+
+Display this man page.
+
+=back
+
+
+=head1	DIAGNOSTICS
+
+FIXME
+
+=head1	ENVIRONMENT
+
+FIXME
+
+=head1	FILES
+
+FIXME
+
+=head1	RESTRICTIONS
+
+FIXME
+
+=head1	SEE ALSO
+
+FIXME
+
+e.g. L<Foo::Bar|Foo::Bar>
+
+=head1	AUTHOR
+
+Your Name <ed@edsantiago.com>
+
+Please report bugs or suggestions to <ed@edsantiago.com>
+
+=cut
