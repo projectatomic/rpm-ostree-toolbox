@@ -1,5 +1,6 @@
 EXTRA_DIST = \
 	$(srcdir)/src/systemd/rpm-ostree-toolbox-build-monitor@.service \
+	$(srcdir)/src/systemd/rpm-ostree-toolbox-git-monitor.service \
 	$(srcdir)/src/systemd/rpm-ostree-toolbox-kinit@.service \
 	$(srcdir)/src/systemd/rpm-ostree-toolbox-kinit@.timer
 
@@ -11,6 +12,7 @@ install-systemd: $(EXTRA_DIST)
 
 uninstall-systemd:
 	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-build-monitor@.service
+	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-git-monitor.service
 	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-kinit@.service
 	$(RM) -f $(DESTDIR)$(SYSTEMD_UNIT_DIR)/rpm-ostree-toolbox-kinit@.timer
 	$(RMDIR) $(DESTDIR)$(SYSTEMD_UNIT_DIR) || :
