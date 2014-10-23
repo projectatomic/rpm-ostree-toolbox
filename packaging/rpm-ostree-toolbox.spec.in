@@ -33,8 +33,11 @@ Requires: kernel
 
 Requires: lorax
 # Imagefactory
-Requires: imagefactory
-Requires: imagefactory-plugins-TinMan
+Requires: imagefactory >= 1.1.6-1
+Requires: imagefactory-plugins-TinMan >= 1.1.6-1
+Requires: imagefactory-plugins-OVA >= 1.1.6-1
+Requires: imagefactory-plugins-vSphere >= 1.1.6-1
+Requires: imagefactory-plugins-RHEVM >= 1.1.6-1
 
 %if 0%{?rhel}
 %else
