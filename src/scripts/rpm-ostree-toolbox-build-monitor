@@ -43,36 +43,6 @@ def dprint(msg):
     if os.getenv('DEBUG_BUILD_MONITOR'):
         print timestamp(), " ", msg
 
-def is_what_we_want(config,message):
-    "Is this the kind of message we're looking for?"
-
-    content = message.content
-    # Content will be a deep structure; we're only interested in a
-    # small subset of it, ->info->request, which is the name of the repo.
-    # All newRepo messages will have this structure, but we check anyway.
-    if 'info' not in content:
-        return False
-    if 'request' not in content['info']:
-        return False
-    repo = content['info']['request'][0]
-
-    dprint("  repo=%s" % repo)
-
-    # Our config file defines a string expression which returns True/False, eg
-    #       repo_is_what_we_want = '"ostree-foo" in repo'
-    return eval(config['monitor']['repo_is_what_we_want'])
-
-def take_action(config,message):
-    "Invoke user-specified command, giving it the name of this repo"
-    repo = message.content['info']['request'][0]
-
-    command = [config['monitor']['trigger_command'], repo]
-    import subprocess
-    status = subprocess.call(command)
-    # FIXME: what to do if status is nonzero?
-    if status != 0:
-        print "***** YO! Command '%s' failed (status=%d)\n" % (command, status)
-
 def listener(config):
     "Main entry point. Connects to QPID broker, waits for messages."
 
@@ -117,8 +87,17 @@ def listener(config):
         # old messages over and over
         session.acknowledge(message)
 
-        if is_what_we_want(config,message):
-            take_action(config,message)
+        # message.content will be a deep structure; we're only interested
+        # in a small subset of it, ->info->request, which is the name of
+        # the repo. All newRepo messages will have this structure, but we
+        # wrap this inside 'try' just in case.
+        try:
+            repo = message.content['info']['request'][0]
+            # Just echo it to stdout. This goes to systemd journal, which
+            # is monitored by another process.
+            print "repo:%s" % repo
+        except Exception, e:
+            print "WARNING: possibly malformed message: %s" % str(e)
 
     # Will never trigger; left in place for reference only
     session.close()
@@ -144,5 +123,8 @@ if __name__ == "__main__":
 
     # Now read config options
     conf = ConfigObj(args.config)
+
+    # Autoflush stdout! otherwise our print()s never make it to journal
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
 
     main(conf)
