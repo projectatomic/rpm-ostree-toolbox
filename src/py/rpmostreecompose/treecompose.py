@@ -74,9 +74,9 @@ class Treecompose(TaskBase):
 
             # Version looks like <releasever>.<minor>.<refresh>[.<cve>]
             # So if we are on 1.2.4.8 then:
-            # --version=minor   == 1.3.0
-            # --version=refresh == 1.2.5.0
-            # --version=cve     == 1.2.4.9
+            # --versioning=minor   == 1.3.0
+            # --versioning=refresh == 1.2.5.0
+            # --versioning=cve     == 1.2.4.9
             if not loaded_version and self.tree_version in ('cve', 'minor',
                                                             'refresh'):
                 fail_msg("No previous version to get new version from")
@@ -148,7 +148,7 @@ def main():
     parser = argparse.ArgumentParser(description='Compose OSTree tree')
     parser.add_argument('-c', '--config', type=str, default='config.ini', help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
-    parser.add_argument('-V', '--version', type=str, default='skip-or-refresh', help='Version to mark compose')
+    parser.add_argument('-V', '--versioning', type=str, default='skip-or-refresh', help='Version to mark compose')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
 
