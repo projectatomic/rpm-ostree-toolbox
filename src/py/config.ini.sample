@@ -77,10 +77,3 @@ address_template = """
     }
 }
 """
-
-# Settings for the monitor script
-[monitor]
-# This will be eval'ed
-repo_is_what_we_want = '"atomic" in repo'
-# Action to take. Please make sure it returns quickly!
-trigger_command = /usr/bin/do-something-interesting
