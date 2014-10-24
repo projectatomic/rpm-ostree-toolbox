@@ -49,7 +49,7 @@ which repos to trigger on. That was a bad design decision, caused
 by my ignorance of the compose process. The proposed mechanism
 echoes **ALL** repos, leaving it up to another process to decide
 whether the repo is a desired one or not. This also gets rid of
-the `/inbox` mechanism).
+the trigger_command config setting.)
 
 Git
 ---
@@ -111,12 +111,12 @@ The watcher process should also add an inotify watch on `config.ini`.
 Summary
 =======
 
-I believe this is much saner than the current `/inbox` mechanism: it
-provides *granularity*, so different compose trees can trigger only
-on events relevant to them. It provides *logging*, so it's possible
-to determine what triggered a given compose (for debugging). It
-*reduces duplication*, because the build-monitor no longer needs
-a configurable (and stale-able) rule for triggering.
+I believe this is much saner than the current one-trigger-fits-all
+mechanism: it provides *granularity*, so different compose trees can
+trigger only on events relevant to them. It provides *logging*, so
+it's possible to determine what triggered a given compose (for
+debugging). It *reduces duplication*, because the build-monitor
+no longer needs a configurable (and stale-able) rule for triggering.
 
 The build and git monitor scripts are not dockerizable: build-monitor
 needs difficult-to-get Kerberos credentials, and git-monitor needs to

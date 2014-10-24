@@ -34,6 +34,7 @@ bin_SCRIPTS += rpm-ostree-toolbox \
 	src/scripts/rpm-ostree-toolbox-build-monitor \
 	src/scripts/rpm-ostree-toolbox-git-monitor \
 	src/scripts/rpm-ostree-toolbox-kinit \
+	src/scripts/rpm-ostree-toolbox-watch \
 	$(NULL)
 
 jstoolboxdir=$(pkgdatadir)/js
