@@ -1,0 +1,438 @@
+#!/usr/bin/perl
+#
+# rpm-ostree-toolbox-watch - watch for events in systemd journal
+#               ... and trigger events based on FIXME
+#
+package RpmOstreeToolbox::Watch;
+
+use strict;
+use warnings;
+
+(our $ME = $0) =~ s|.*/||;
+(our $VERSION = '$Revision: 0.0 $ ') =~ tr/[0-9].//cd;
+
+# For debugging, show data structures using DumpTree($var)
+#use Data::TreeDumper; $Data::TreeDumper::Displayaddress = 0;
+
+###############################################################################
+# BEGIN user-customizable section
+
+# Prefix for all tools in this package. We use this to find systemd services.
+our $MyPrefix = 'rpm-ostree-toolbox';
+
+# Path to master config file. We expect to be invoked from $PWD with it.
+# The "./" is unnecessary but may be helpful for someone reading --help.
+our $Config_File = './config.ini';
+
+# Autoflush stdout
+$| = 1;
+
+# END   user-customizable section
+###############################################################################
+
+use Config::IniFiles;
+use File::Basename      qw(dirname);
+use JSON::XS;
+
+###############################################################################
+# BEGIN boilerplate args checking, usage messages
+
+sub usage {
+    print  <<"END_USAGE";
+Usage: $ME [OPTIONS] ARGS [...]
+
+blah blah blah
+
+OPTIONS:
+
+  --config=PATH  path to master config file (default: $Config_File)
+
+  -v, --verbose  show verbose progress indicators
+  -n, --dry-run  make no actual changes
+
+  --help         display this message
+  --man          display program man page
+  --version      display program name and version
+END_USAGE
+
+    exit;
+}
+
+sub man {
+    # Read the POD contents.  If it hasn't been filled in yet, abort.
+    my $pod = do { local $/; <DATA>; };
+    if ($pod =~ /=head1 \s+ NAME \s+ FIXME/xm) {
+        warn "$ME: No man page available.  Please try $ME --help\n";
+        exit;
+    }
+
+    # Use Pod::Man to convert our __DATA__ section to *roff
+    eval { require Pod::Man }
+        or die "$ME: Cannot generate man page; Pod::Man unavailable: $@\n";
+    my $parser = Pod::Man->new(name => $ME, release => $VERSION, section => 1);
+
+    # If called without output redirection, man-ify.
+    my $out_fh;
+    if (-t *STDOUT) {
+        my $pager = $ENV{MANPAGER} || $ENV{PAGER} || 'less';
+        open $out_fh, "| nroff -man | $pager";
+    }
+    else {
+        open $out_fh, '>&STDOUT';
+    }
+
+    # Read the POD contents, and have Pod::Man read from fake filehandle.
+    # This requires 5.8.0.
+    open my $pod_handle, '<', \$pod;
+    $parser->parse_from_filehandle($pod_handle, $out_fh);
+    exit;
+}
+
+
+# Command-line options.  Note that this operates directly on @ARGV !
+our $debug   = 0;
+our $force   = 0;
+our $verbose = 0;
+our $NOT     = '';              # print "blahing the blah$NOT\n" if $debug
+sub handle_opts {
+    use Getopt::Long;
+    GetOptions(
+        'config=s'   => \$Config_File,
+
+        'debug!'     => \$debug,
+        'dry-run|n!' => sub { $NOT = ' [NOT]' },
+        'force'      => \$force,
+        'verbose|v'  => \$verbose,
+
+        help         => \&usage,
+        man          => \&man,
+        version      => sub { print "$ME version $VERSION\n"; exit 0 },
+    ) or die "Try `$ME --help' for help\n";
+}
+
+# END   boilerplate args checking, usage messages
+###############################################################################
+
+############################## CODE BEGINS HERE ###############################
+
+# The term is "modulino".
+__PACKAGE__->main()                                     unless caller();
+
+# Main code.
+sub main {
+    # Note that we operate directly on @ARGV, not on function parameters.
+    # This is deliberate: it's because Getopt::Long only operates on @ARGV
+    # and there's no clean way to make it use @_.
+    handle_opts();                      # will set package globals
+
+    # FIXME: do code here
+
+    # check for config.ini, barf if missing
+    # run 'systemctl list-units | grep rpm-ostree-toolbox-*.service'
+    # run 'journalctl ... |', read from it
+    # read config.ini
+    #   ...from config.ini, read json file
+    #
+    monitor();
+}
+
+
+sub monitor {
+    my @systemd_units = desired_systemd_units();
+
+    my @journalctl_cmd = ('journalctl', '--output=short-iso',
+                          (map { ('-u' => $_) } @systemd_units),
+                          '--follow', '--lines=0');
+
+    print "\# @journalctl_cmd\n" if $debug;
+    open my $journalctl_fh, '-|', @journalctl_cmd
+        or die "$ME: could not fork: $!\n";
+
+    # This is essentially an infinite loop on journalctl --follow
+    while (my $line = <$journalctl_fh>) {
+        print $line  if -t *STDIN;      # for debugging
+        chomp $line;
+
+        if (we_trigger_on($line)) {
+            # FIXME: do an actual trigger
+            print "***** TRIGGERED!\n";
+        }
+    }
+
+    # (should never get here)
+    close $journalctl_fh;
+}
+
+###################
+#  we_trigger_on  #  Given a journal line, do we trigger on it?
+###################
+sub we_trigger_on {
+    my $line = shift;                   # in: entire line from journalctl
+
+    return if $line =~ / Logs begin at /;
+
+    # e.g. 2014-10-23T07:23:58-0400 myhost <tool>[PID]: stuff...
+    $line =~ /^(\S+) \s+ \S+ \s+ (\S+)\[\d+\]:\s+(.*)/x
+        or do {
+            warn "cannot grok journalctl line '$line'\n";
+            return;
+        };
+    my ($timestamp, $tool, $output) = ($1, $2, $3);
+
+    # FIXME: do something with timestamp? Like, check if too old?
+
+    # Yes, we actually get lines other than our desired tool: systemd
+    # start/stop lines, GSSAPI login indicators, python tracebacks.
+    $tool =~ /^$MyPrefix-(.*)-monitor/
+        or return;
+    my $handler = __PACKAGE__->can("_handle_$1")
+        or do {
+            warn "WARNING: No handler for '$tool'; skipping...\n";
+            return;
+        };
+
+    return $handler->($output);
+}
+
+
+sub desired_systemd_units {
+    my @units;
+    my @list_units_cmd = ('systemctl', 'list-units');
+    open my $list_units_fh, '-|', @list_units_cmd
+        or die "$ME: Could not fork: $!\n";
+    while (my $line = <$list_units_fh>) {
+        print $line if $debug;
+        if ($line =~ /^($MyPrefix-\S+-monitor\S*)\.service.* active running/) {
+            push @units, $1 unless $1 eq $ME;
+        }
+    }
+    close $list_units_fh
+        or die "$ME: command failed: @list_units_cmd\n";
+
+    die "$ME: did not find any running services to monitor (via @list_units_cmd), aborting.\n" if !@units;
+
+    return @units;
+}
+
+###############################################################################
+# BEGIN handlers
+#
+# These handle one line from each of the monitors.
+#
+# To handle a new type of rpm-ostree-toolbox-FOO-monitor, define a new
+# function _handle_FOO(). It should expect one argument, the content of
+# the output from the monitor script.
+#
+
+###################
+#  _handle_build  #  one repo event
+###################
+sub _handle_build {
+    my $line = shift;
+
+    # alphanumeric, periods, dashes. Nothing else.
+    $line =~ /^repo:([\w\d.-]+)$/
+        or return;
+    my $built_repo = $1;
+
+    # FIXME: read config.ini, then JSON, then compare tags
+    return we_use_repo($built_repo);
+}
+
+#################
+#  _handle_git  #  one git push
+#################
+sub _handle_git {
+    my $line = shift;
+
+    $line =~ /^ip:[\d.]+\s+branch:(\S+)/
+        or return;
+    my $pushed_branch = $1;
+
+    return $pushed_branch eq our_branch_name();
+}
+
+# END   handlers
+###############################################################################
+# BEGIN helpers for handlers
+
+#################
+#  we_use_repo  #  Is the given repo in our list of repos to use for a compose?
+#################
+sub we_use_repo {
+    my $desired_repo = shift;
+
+    my $tree_file = tree_file();
+    my $tree_info = read_json($tree_file);
+
+    exists $tree_info->{repos}
+        or do {
+            warn "$ME: $tree_file does not define 'repos'\n";
+            return;
+        };
+    ref($tree_info->{repos}) eq 'ARRAY'
+        or do {
+            warn "$ME: $tree_file: 'repos' is not defined as an array\n";
+            return;
+        };
+
+    return grep { $_ eq $desired_repo } @{$tree_info->{repos}};
+}
+
+#####################
+#  our_branch_name  #  Returns the git branch name of the current directory
+#####################
+#
+# This could also be done via git rev-parse but that requires a different
+# level of security (because of fork + environment) and error checking.
+# This is good enough for our purposes.
+#
+sub our_branch_name {
+    my $desired_branch = shift;                 # in: branch that got pushed
+
+    my $tree_file = tree_file();
+    my $dir = dirname($tree_file);
+
+    while ($dir ne '/') {
+        if (-d (my $git = "$dir/.git")) {
+            # ...then read the contents of HEAD, which will be a branch name
+            open my $fh, '<', "$git/HEAD"
+                or do {
+                    warn "$ME: Could not read $git/HEAD: $!\n";
+                    return;
+                };
+            chomp( my $head = <$fh> );
+            close $fh;
+
+            return $head;
+        }
+
+        # Up to the parent directory
+        $dir = dirname($dir);
+    }
+
+    $dir = dirname($tree_file);
+    warn "$ME: did not find .git directory anywhere in $dir\n";
+    return;
+}
+
+
+###############
+#  tree_file  #  Returns path to the tree_file as defined in $Config_File
+###############
+sub tree_file {
+    # FIXME! Config::IniFiles v2.82 does not actually set @errors! It carps()!
+    my $cfg = Config::IniFiles->new( -file => $Config_File )
+        or die "$ME: @Config::IniFiles::errors\n";
+
+    my $tree_file = $cfg->val('DEFAULT', 'tree_file')
+        or die "$ME: $Config_File: No value for 'tree_file'\n";
+
+    # Replace pythony %(foo)s with 'foo'
+    $tree_file =~ s{%\((.*?)\)s}{
+        my $s = $1;
+        my $val = $cfg->val('DEFAULT', $s)
+            or die "$ME: $Config_File: No setting for '$s' in tree_file value '$tree_file'\n";
+        $val;
+    }ge;
+
+    return $tree_file;
+}
+
+###############
+#  read_json  #  ...because JSON::XS doesn't provide a file-reading mechanism
+###############
+sub read_json {
+    my $path = shift;                           # in: path to .json file
+
+    open my $fh, '<', $path
+        or die "$ME: Could not read $path: $!\n";
+    my $contents = do { local $/ = undef; <$fh>; };
+    close $fh;
+
+    return decode_json($contents);
+}
+
+# END   helpers for handlers
+###############################################################################
+
+1;
+
+__DATA__
+
+###############################################################################
+#
+# Documentation
+#
+
+=head1	NAME
+
+FIXME - description of what this script does
+
+=head1	SYNOPSIS
+
+FIXME [B<--foo>]  [B<--bar>]  [B<--verbose>] ARG1 [ARG2...] FIXME
+
+FIXME  B<--help>  |  B<--version> | B<--man>
+
+=head1	DESCRIPTION
+
+B<FIXME> grobbles the frobniz on alternate Tuesdays, except where
+prohibited by law.
+
+=head1	OPTIONS
+
+=over 4
+
+=item B<--foo>
+
+FIXME
+
+=item B<--verbose>
+
+Show progress messages.
+
+=item B<--help>
+
+Emit usage hints.
+
+=item B<--version>
+
+Display program version.
+
+=item B<--man>
+
+Display this man page.
+
+=back
+
+
+=head1	DIAGNOSTICS
+
+FIXME
+
+=head1	ENVIRONMENT
+
+FIXME
+
+=head1	FILES
+
+FIXME
+
+=head1	RESTRICTIONS
+
+FIXME
+
+=head1	SEE ALSO
+
+FIXME
+
+e.g. L<Foo::Bar|Foo::Bar>
+
+=head1	AUTHOR
+
+Your Name <ed@edsantiago.com>
+
+Please report bugs or suggestions to <ed@edsantiago.com>
+
+=cut

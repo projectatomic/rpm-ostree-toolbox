@@ -80,6 +80,7 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %{_bindir}/rpm-ostree-toolbox-kinit
 %{_bindir}/rpm-ostree-toolbox-build-monitor
 %{_bindir}/rpm-ostree-toolbox-git-monitor
+%{_bindir}/rpm-ostree-toolbox-watch
 %{_libdir}/%{name}/
 %{_datadir}/%{name}/
 %{_mandir}/man1/%{name}*.gz
@@ -93,6 +94,7 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %{_unitdir}/rpm-ostree-toolbox-kinit@.timer
 %{_unitdir}/rpm-ostree-toolbox-build-monitor@.service
 %{_unitdir}/rpm-ostree-toolbox-git-monitor.service
+%{_unitdir}/rpm-ostree-toolbox-watch@.service
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1
