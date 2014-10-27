@@ -93,7 +93,8 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %{_unitdir}/rpm-ostree-toolbox-kinit@.service
 %{_unitdir}/rpm-ostree-toolbox-kinit@.timer
 %{_unitdir}/rpm-ostree-toolbox-build-monitor@.service
-%{_unitdir}/rpm-ostree-toolbox-git-monitor.service
+%{_unitdir}/rpm-ostree-toolbox-git-monitor@.service
+%{_unitdir}/rpm-ostree-toolbox-git-monitor.socket
 %{_unitdir}/rpm-ostree-toolbox-watch@.service
 
 %changelog

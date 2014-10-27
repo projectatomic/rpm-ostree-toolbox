@@ -14,15 +14,16 @@ my $tempdir = make_test_directory();
 
 # Given the setup in 00-common.pl, this is what we expect:
 my $expect = <<'END_EXPECT';
-build    repo:repo-1                         1
-build    repo:repo-2                         1
-build    repo:repo-3                         0
-build    repo:myrepo                         0
-build    unexpected output                   0
-build    repo-1                              0
-git      ip:10.10.10.10 branch:hithere       0
-git      ip:10.10.10.10 branch:mybranch      1
-git      unexpected output                   0
+build    repo:repo-1          1
+build    repo:repo-2          1
+build    repo:repo-3          0
+build    repo:myrepo          0
+build    unexpected output    0
+build    repo-1               0
+git      branch:hithere       0
+git      branch:mybranch      1
+git      branch:notmybranch   0
+git      unexpected output    0
 END_EXPECT
 
 # Build an input line out of each of the above lines, generating the

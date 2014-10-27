@@ -203,8 +203,8 @@ sub desired_systemd_units {
         or die "$ME: Could not fork: $!\n";
     while (my $line = <$list_units_fh>) {
         print $line if $debug;
-        if ($line =~ /^($MyPrefix-\S+-monitor\S*)\.service.* active running/) {
-            push @units, $1 unless $1 eq $ME;
+        if ($line =~ /^($MyPrefix-\S+-monitor\S*)\.(service|socket).* active (running|listening)/) {
+            push @units, $1;
         }
     }
     close $list_units_fh
@@ -246,7 +246,7 @@ sub _handle_build {
 sub _handle_git {
     my $line = shift;
 
-    $line =~ /^ip:[\d.]+\s+branch:(\S+)/
+    $line =~ /^branch:(\S+)/
         or return;
     my $pushed_branch = $1;
 
