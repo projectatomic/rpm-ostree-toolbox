@@ -67,6 +67,7 @@ class InstallerTask(TaskBase):
                   '--add-template-var=ostree_ref=%s' % self.ref,
                   '-p', self.os_pretty_name, '-v', self.release,
                   '-r', self.release, '-s', self.yum_baseurl,
+                  '-e', 'systemd-container',
                   ] + lorax_opts + ['output'],
                  cwd=lorax_workdir)
         # We injected data into boot.iso, so it's now installer.iso
