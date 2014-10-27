@@ -153,7 +153,7 @@ def main():
     args = parser.parse_args()
 
     composer = Treecompose(args.config, release=args.release)
-    composer.tree_version = args.version
+    composer.tree_version = args.versioning
     composer.show_config()
 
     origrev, newrev = composer.compose_tree()
