@@ -33,7 +33,7 @@ for my $line (split "\n", $expect) {
     my $tf = pop @rest;
     push @tests, {
         name  => "$which: @rest => $tf",
-        input => "YYYY-MM-DDTHH:MM:SS myhost rpm-ostree-toolbox-$which-monitor\[12345\]: @rest",
+        input => qq({ "_PID": "123", "_SYSTEMD_UNIT" : "rpm-ostree-toolbox-$which-monitor.service", "MESSAGE" : "@rest" }),
         expect => $tf,
     };
 }

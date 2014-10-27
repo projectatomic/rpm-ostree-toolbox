@@ -140,7 +140,7 @@ sub main {
 sub monitor {
     my @systemd_units = desired_systemd_units();
 
-    my @journalctl_cmd = ('journalctl', '--output=short-iso',
+    my @journalctl_cmd = ('journalctl', '--output=json',
                           (map { ('-u' => $_) } @systemd_units),
                           '--follow', '--lines=0');
 
@@ -169,17 +169,18 @@ sub monitor {
 sub we_trigger_on {
     my $line = shift;                   # in: entire line from journalctl
 
-    return if $line =~ / Logs begin at /;
+    # Input line is JSON.
+    my $event = decode_json($line);
 
-    # e.g. 2014-10-23T07:23:58-0400 myhost <tool>[PID]: stuff...
-    $line =~ /^(\S+) \s+ \S+ \s+ (\S+)\[\d+\]:\s+(.*)/x
+    # eg "rpm-ostree-toolbox-git-monitor.service"
+    my $tool = $event->{_SYSTEMD_UNIT}
+        or return;
+
+    my $message = $event->{MESSAGE}
         or do {
-            warn "cannot grok journalctl line '$line'\n";
+            warn "WARNING: contentless journal message from $tool\n";
             return;
         };
-    my ($timestamp, $tool, $output) = ($1, $2, $3);
-
-    # FIXME: do something with timestamp? Like, check if too old?
 
     # Yes, we actually get lines other than our desired tool: systemd
     # start/stop lines, GSSAPI login indicators, python tracebacks.
@@ -191,7 +192,7 @@ sub we_trigger_on {
             return;
         };
 
-    return $handler->($output);
+    return $handler->($message);
 }
 
 

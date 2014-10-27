@@ -152,37 +152,50 @@ sub main_loop {
         my ($port, $addr) = unpack_sockaddr_in($client_info);
         my $ip = inet_ntoa($addr);
 
-        # Input timeout: prevent someone from DOSing us by
-        # telnet'ing to our port and just sitting there.
-        $SIG{ALRM} = sub {
-            logger("ip:$ip TIMEOUT");
-            $client->shutdown(SHUT_RDWR);
-        };
-        alarm 5;
-
-        # Read from remote. Input is expected to be one or more lines,
-        # each of which is a git branch name (eg 'master', 'foo').
-        while (my $line = <$client>) {
-            chomp $line;
-
-            # Humans can test via 'echo foo | nc HOST PORT' but some of us
-            # also use 'telnet HOST PORT'. The latter sends \r\n :-(
-            $line =~ s/\r+$//;
-
-            # Sanitize input. For our purposes, require branch names to be
-            # alphanumeric plus slash, dot, underscore, hyphen. Not quite
-            # the same as the full git fules (see git-check-ref-format),
-            # but good enough for us.
-            if ($line =~ m|^([\w/._-]{1,90})$|) {
-                logger("ip:$ip branch:$1");
-            }
-            else {
-                logger("ip:$ip branch:INVALID-INPUT");
-            }
-
-            # Restart the input timeout
+        eval {
+            # Input timeout: prevent someone from DOSing us by
+            # telnet'ing to our port and just sitting there.
+            local $SIG{ALRM} = sub { die "timed out" };
             alarm 5;
-        }
+
+            eval {
+                # Read from remote. Input is expected to be one or more lines,
+                # each of which is a git branch name (eg 'master', 'foo').
+                while (my $line = <$client>) {
+                    chomp $line;
+
+                    # Humans can test via 'echo foo | nc HOST PORT' but some
+                    # of us also use 'telnet HOST PORT'. The latter sends \r\n
+                    $line =~ s/\r+$//;
+
+                    # Sanitize input. For our purposes, require branch names
+                    # to be alphanumeric plus slash, dot, underscore, hyphen.
+                    # Not quite the same as the full git rules
+                    # (see git-check-ref-format) but good enough for us.
+                    if ($line =~ m|^([\w/._-]{1,90})$|) {
+                        logger("ip:$ip branch:$1");
+                    }
+                    else {
+                        logger("ip:$ip branch:INVALID-INPUT");
+                    }
+
+                    # Restart the input timeout
+                    alarm 5;
+                }
+            };
+            alarm 0;
+
+            # Eval error? log timeout, but propagate anything else
+            if ($@) {
+                die unless $@ =~ /timed out/;
+                logger("ip:$ip TIMEOUT");
+            }
+        };
+
+        # Propagate any error from our eval.
+        die if $@;
+
+        # Done with client. Reset timeout, shut down socket.
         alarm 0;
         $client->shutdown(SHUT_RDWR);
     }
