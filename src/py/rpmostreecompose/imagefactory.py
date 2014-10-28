@@ -235,7 +235,7 @@ class ImageFactoryTask(TaskBase):
             outputname = os.path.join(outputdir, '%s.raw' % (self._name))
             print outputname 
 
-            qemucmd = ['qemu-img', 'convert', '-f', 'raw', '-O', 'qcow2', image.data, outputname]
+            qemucmd = ['qemu-img', 'convert', '-f', 'raw', '-O', 'qcow2', '-o', 'compat=0.10', image.data, outputname]
             imageouttypes.pop(imageouttypes.index("raw"))
             subprocess.check_call(qemucmd)
 
