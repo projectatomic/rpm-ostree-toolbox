@@ -7,7 +7,10 @@ use File::Temp                  qw(tempdir);
 
 sub make_test_directory {
     # Create a working directory. It will contain a bogus set of configs.
-    my $tempdir = tempdir("watch.XXXXXX", TMPDIR => 1, CLEANUP => 1);
+    my $tempdir = tempdir("watch.XXXXXX",
+                          TMPDIR => 1,
+                          CLEANUP => !$ENV{DEBUG},
+                      );
 
     # Write our initial config.ini file
     write_file("$tempdir/config.ini", <<'END_INI');

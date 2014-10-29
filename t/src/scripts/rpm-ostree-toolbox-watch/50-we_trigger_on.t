@@ -33,7 +33,11 @@ for my $line (split "\n", $expect) {
     my $tf = pop @rest;
     push @tests, {
         name  => "$which: @rest => $tf",
-        input => qq({ "_PID": "123", "_SYSTEMD_UNIT" : "rpm-ostree-toolbox-$which-monitor.service", "MESSAGE" : "@rest" }),
+        event => +{
+            _PID          => "123",
+            _SYSTEMD_UNIT => "rpm-ostree-toolbox-$which-monitor.service",
+            MESSAGE       => "@rest",
+        },
         expect => $tf,
     };
 }
@@ -54,7 +58,7 @@ ok(require($script_path), "loaded $script_path") or exit;
 chdir $tempdir
     or die "Cannot cd $tempdir: $!";
 for my $t (@tests) {
-    is !!RpmOstreeToolbox::Watch::we_trigger_on($t->{input})+0,
+    is !!RpmOstreeToolbox::Watch::we_trigger_on($t->{event})+0,
         $t->{expect},
         $t->{name};
 }

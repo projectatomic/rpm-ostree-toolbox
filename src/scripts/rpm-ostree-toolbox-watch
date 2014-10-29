@@ -24,6 +24,9 @@ our $MyPrefix = 'rpm-ostree-toolbox';
 # The "./" is unnecessary but may be helpful for someone reading --help.
 our $Config_File = './config.ini';
 
+# Subdirectory under which to write logs. See log_file().
+our $Log_Subdir = 'tasks/treecompose';
+
 # Autoflush stdout
 $| = 1;
 
@@ -31,8 +34,13 @@ $| = 1;
 ###############################################################################
 
 use Config::IniFiles;
+use Cwd                 qw(cwd);
 use File::Basename      qw(dirname);
-use JSON::XS;
+use File::Path          qw(make_path);
+use JSON::XS;                                   # journalctl events are JSON
+use List::Util          qw(max);                # for formatting in log file
+use POSIX               qw(:sys_wait_h);        # for reaping children
+use Time::Piece;
 
 ###############################################################################
 # BEGIN boilerplate args checking, usage messages
@@ -153,10 +161,7 @@ sub monitor {
         print $line  if -t *STDIN;      # for debugging
         chomp $line;
 
-        if (we_trigger_on($line)) {
-            # FIXME: do an actual trigger
-            print "***** TRIGGERED!\n";
-        }
+        process_event(decode_json($line));
     }
 
     # (should never get here)
@@ -164,13 +169,94 @@ sub monitor {
 }
 
 ###################
-#  we_trigger_on  #  Given a journal line, do we trigger on it?
+#  process_event  #  Is this an event we want? If so, run a compose
+###################
+our %Child_Log;
+sub process_event {
+    my $event = shift;                          # in: event from journal
+
+    return unless we_trigger_on($event);
+
+    # We've triggered. Fork, and run a compose in the child.
+    $SIG{CHLD} = \&REAPER;
+
+    my $log = log_file();
+
+    my $kidpid = fork;
+    die "$ME: Could not fork: $!\n" if ! defined $kidpid;
+    if ($kidpid) {
+        # We are the parent. Start a log entry, and go back to main loop.
+        $Child_Log{$kidpid} = $log;
+        print "BEGIN compose; see $log\n";
+        return;
+    }
+
+    # Start writing to log. Send all our output to it.
+    open my $log_fh, '>>', $log
+        or die "$ME: Could not write to $log: $!\n";
+    open STDOUT, '>&', $log_fh
+        or die "$ME: Could not dup STDOUT: $!\n";
+    open STDERR, '>&', $log_fh
+        or die "$ME: Could not dup STDERR: $!\n";
+
+    # All output from here on is going to our log.
+    print <<"END_LOG_HEADER";
+###############################################################################
+#
+# Log created by $ME
+# Triggered by the following journal event:
+#
+END_LOG_HEADER
+
+    my $maxlen = max map { length } keys %$event; # length of longest name
+    printf "#    %-*s = %s\n", $maxlen, $_, $event->{$_} for sort keys %$event;
+    print  "#\n";
+    printf "# %s BEGIN\n\n", localtime->datetime;
+
+    # First: git pull. It's OK if this fails.
+    # This should really be "git -C <dirname>" but git-1.8.3 (RHEL7) doesn't
+    # have -C. Fake it via cd, but since we don't want to change our
+    # actual cwd, use a string (subshell) instead of the cleaner list form.
+    my $cmd = sprintf("(cd %s && git pull -r)", dirname(tree_file()));
+    print "\$ $cmd\n";
+    system($cmd);
+    print  "\n";
+
+    # Next: treecompose.
+    my @cmd = ('rpm-ostree-toolbox', 'treecompose', '-c' => $Config_File);
+    print  "\$ @cmd\n";
+
+    my $rc  = 0;
+    my $msg = "success";
+    if (system(@cmd) != 0) {
+        $msg = "ERROR: ";
+        $rc  = 255;
+        if ($? == -1) {
+            $msg .= "failed to execute: $!";
+        }
+        elsif ($? & 127) {
+            $msg .= sprintf("died with signal %d", $? & 127);
+        }
+        else {
+            $rc = $? >> 8;
+            $msg .= sprintf("status=%d", $rc);
+        }
+    }
+
+    printf <<"END_LOG_TAIL", localtime->datetime, $msg;
+
+# %s FINISHED: %s
+###############################################################################
+END_LOG_TAIL
+
+    exit $rc;
+}
+
+###################
+#  we_trigger_on  #  Given a journal event, do we trigger on it?
 ###################
 sub we_trigger_on {
-    my $line = shift;                   # in: entire line from journalctl
-
-    # Input line is JSON.
-    my $event = decode_json($line);
+    my $event = shift;                  # in: decoded event from journal
 
     # eg "rpm-ostree-toolbox-git-monitor.service"
     my $tool = $event->{_SYSTEMD_UNIT}
@@ -195,7 +281,9 @@ sub we_trigger_on {
     return $handler->($message);
 }
 
-
+##########################
+#  desired_system_units  #  returns all <prefix>-<name>-monitor systemd units
+##########################
 sub desired_systemd_units {
     my @units;
     my @list_units_cmd = ('systemctl', 'list-units');
@@ -213,6 +301,29 @@ sub desired_systemd_units {
     die "$ME: did not find any running services to monitor (via @list_units_cmd), aborting.\n" if !@units;
 
     return @units;
+}
+
+##############
+#  log_file  #  Returns absolute path to our desired log file
+##############
+#
+# Takes no arguments but uses current directory and date as its inputs.
+# Creates all interim directories.
+#
+sub log_file {
+    my $cwd = cwd();
+    my $t   = localtime;                # FIXME: gmtime instead?
+
+    # eg /srv/mybranch/tasks/treecompose/2014/11/03/05h2501
+    my $dir = sprintf("%s/%s/%d/%02d/%02d/%02dh%02d%02d",
+                      $cwd,
+                      $Log_Subdir,
+                      $t->year, $t->mon, $t->mday,
+                      $t->hour, $t->minute, $t->second);
+
+    make_path($dir, { verbose => 0, mode => 02755 });
+
+    return "$dir/output.txt";
 }
 
 ###############################################################################
@@ -355,6 +466,30 @@ sub read_json {
 }
 
 # END   helpers for handlers
+###############################################################################
+# BEGIN child process cleanup
+
+############
+#  REAPER  #  Cleans up a finished job, and logs its status (to systemd journal)
+############
+sub REAPER {
+    # There may be more than one child.
+    while ((my $kidpid = waitpid(-1, WNOHANG)) > 0) {
+        if (my $log = delete $Child_Log{$kidpid}) {
+            # The usual case: we have a log file for this child
+            printf "END  compose; status=%d; see %s\n", $?, $log;
+        }
+        else {
+            # Maybe if there's an error creating the log file? If so
+            # our journal probably has the child's error message.
+            printf "END  compose; status=%d; log unavailable?!\n", $?;
+        }
+    }
+
+    $SIG{CHLD} = \&REAPER;
+}
+
+# END   child process cleanup
 ###############################################################################
 
 1;
