@@ -55,7 +55,7 @@ my $begin_end;
 close STDOUT;
 open STDOUT, '>', \$begin_end
     or die "Could not reopen STDOUT: $!";
-RpmOstreeToolbox::Watch::process_event(\%event);
+RpmOstreeToolbox::Watch::start_job(\%event);
 
 # WAIT! The child process is still running. Wait for it to complete.
 # Yes, this is not robust. Got a better idea?

@@ -37,6 +37,7 @@ use Config::IniFiles;
 use Cwd                 qw(cwd);
 use File::Basename      qw(dirname);
 use File::Path          qw(make_path);
+use IO::Select;                                 # for sysreadline()
 use JSON::XS;                                   # journalctl events are JSON
 use List::Util          qw(max);                # for formatting in log file
 use POSIX               qw(:sys_wait_h);        # for reaping children
@@ -144,7 +145,10 @@ sub main {
     monitor();
 }
 
-
+#############
+#  monitor  #  Main loop.  Starts (or queues) composes upon the right trigger.
+#############
+our $Job_Running;               # We can have only one at a time
 sub monitor {
     my @systemd_units = desired_systemd_units();
 
@@ -157,36 +161,58 @@ sub monitor {
         or die "$ME: could not fork: $!\n";
 
     # This is essentially an infinite loop on journalctl --follow
-    while (my $line = <$journalctl_fh>) {
-        print $line  if -t *STDIN;      # for debugging
-        chomp $line;
+    my @event_queue;
+    while (1) {
+        # Anything queued? Start a compose. We can have more than one event
+        # in the queue, say if multiple commits/repos come in while we're
+        # in the middle of a running compose. Flush them all at once: we
+        # can safely assume that our new compose will include all changes
+        # collected to date.
+        if (@event_queue && !$Job_Running) {
+            start_job(@event_queue);
+            @event_queue = ();
+        }
 
-        process_event(decode_json($line));
+        # Check for journal lines. Loop again (i.e. check queue) in 10 seconds.
+        if (my $line = sysreadline($journalctl_fh, 10)) {
+            chomp $line;
+            print $line,"\n"  if -t *STDIN;      # for debugging
+
+            my $event = decode_json($line);
+            if (we_trigger_on($event)) {
+                push @event_queue, $event;
+
+                # If anyone's watching, let them know we made it here.
+                if ($Job_Running) {
+                    printf "triggered (%s: %s) but queued for later\n",
+                        $event->{_SYSTEMD_UNIT},
+                        $event->{MESSAGE};
+                }
+            }
+        }
     }
 
     # (should never get here)
     close $journalctl_fh;
 }
 
-###################
-#  process_event  #  Is this an event we want? If so, run a compose
-###################
+###############
+#  start_job  #  Fork and start a compose job.
+###############
 our %Child_Log;
-sub process_event {
-    my $event = shift;                          # in: event from journal
+sub start_job {
+    my @events = @_;                            # in: one or more journal events
 
-    return unless we_trigger_on($event);
-
-    # We've triggered. Fork, and run a compose in the child.
     $SIG{CHLD} = \&REAPER;
-
     my $log = log_file();
 
-    my $kidpid = fork;
-    die "$ME: Could not fork: $!\n" if ! defined $kidpid;
-    if ($kidpid) {
+    # Note that we use a global: this tells our caller not to schedule
+    # any more jobs. The var will be cleared by our SIGCHLD handler.
+    $Job_Running = fork;
+    die "$ME: Could not fork: $!\n" if ! defined $Job_Running;
+    if ($Job_Running) {
         # We are the parent. Start a log entry, and go back to main loop.
-        $Child_Log{$kidpid} = $log;
+        $Child_Log{$Job_Running} = $log;
         print "BEGIN compose; see $log\n";
         return;
     }
@@ -200,16 +226,25 @@ sub process_event {
         or die "$ME: Could not dup STDERR: $!\n";
 
     # All output from here on is going to our log.
-    print <<"END_LOG_HEADER";
+    printf <<"END_LOG_HEADER", (@events == 1 ? '' : 's');
 ###############################################################################
 #
 # Log created by $ME
-# Triggered by the following journal event:
+# Triggered by the following journal event%s:
 #
 END_LOG_HEADER
 
-    my $maxlen = max map { length } keys %$event; # length of longest name
-    printf "#    %-*s = %s\n", $maxlen, $_, $event->{$_} for sort keys %$event;
+    # There may have been more than one trigger event, e.g. if multiple
+    # commits/repos came in while we were already busy with a compose.
+    # Log them all.
+    my $separator = '';
+    for my $event (@events) {
+        print $separator; $separator = "# " . ("-" x 70) . "\n";
+        my @names = sort keys %$event;
+        my $maxlen = max map { length } @names;
+        printf "#    %-*s = %s\n", $maxlen, $_, $event->{$_} for @names;
+    }
+
     print  "#\n";
     printf "# %s BEGIN\n\n", localtime->datetime;
 
@@ -467,6 +502,46 @@ sub read_json {
 
 # END   helpers for handlers
 ###############################################################################
+# BEGIN scaffolding
+
+#################
+#  sysreadline  #  line-by-line read, with timeout
+#################
+#
+# mostly copied from Perl Cookbook 7.23
+#
+our $Sysreadline_Pending;
+sub sysreadline {
+    my ($fh, $timeout) = @_;
+
+    # Any lines pending from an earlier call? Return them instantly.
+    $Sysreadline_Pending //= '';
+    if ($Sysreadline_Pending =~ s/^(.*)\n//) {
+        return $1;
+    }
+
+    # Nothing pending. Check the filehandle itself.
+    my $selector = IO::Select->new;
+    $selector->add($fh);
+    return unless $selector->can_read($timeout);
+
+    # If we get here, there's *something* in our filehandle. Read it all.
+    # Assume that we won't get any partial lines, but we _may_ get more
+    # than one line. If we do, save them for later.
+    $fh->blocking(0);
+    while (sysread($fh, my $buffer, 2048)) {
+        $Sysreadline_Pending .= $buffer;
+    }
+
+    return if length($Sysreadline_Pending) == 0;
+
+    $Sysreadline_Pending =~ s/^(.*)\n//
+        or die "$ME: Internal error: unexpected incomplete line from journal";
+    return $1;
+}
+
+# END   scaffolding
+###############################################################################
 # BEGIN child process cleanup
 
 ############
@@ -477,14 +552,17 @@ sub REAPER {
     while ((my $kidpid = waitpid(-1, WNOHANG)) > 0) {
         if (my $log = delete $Child_Log{$kidpid}) {
             # The usual case: we have a log file for this child
-            printf "END  compose; status=%d; see %s\n", $?, $log;
+            printf "END   compose; status=%d; see %s\n", $?, $log;
         }
         else {
             # Maybe if there's an error creating the log file? If so
             # our journal probably has the child's error message.
-            printf "END  compose; status=%d; log unavailable?!\n", $?;
+            printf "END   compose; status=%d; log unavailable?!\n", $?;
         }
     }
+
+    # Scheduler is now free to start a new compose.
+    undef $Job_Running;
 
     $SIG{CHLD} = \&REAPER;
 }
