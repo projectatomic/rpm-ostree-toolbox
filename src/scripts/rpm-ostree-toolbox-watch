@@ -356,6 +356,13 @@ sub log_file {
                       $t->year, $t->mon, $t->mday,
                       $t->hour, $t->minute, $t->second);
 
+    # UNLIKELY: does the log directory already exist? Append a sequence number.
+    if (-d $dir) {
+        my $i = 1;
+        $i++ while -d "$dir.$i";
+        $dir .= ".$i";
+    }
+
     make_path($dir, { verbose => 0, mode => 02755 });
 
     return "$dir/output.txt";
