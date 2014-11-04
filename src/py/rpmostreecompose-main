@@ -20,7 +20,6 @@ import os
 import sys
 
 from rpmostreecompose import imagefactory, installer, treecompose
-from rpmostreecompose import cloud2ovf
 from rpmostreecompose import taskrunner
 
 def execgjs(cmd, argv):
@@ -35,7 +34,6 @@ def usage(iserr):
   treecompose - Use rpm-ostree to compose RPMs to a tree
   imagefactory - Use ImageFactory to create a disk image
   installer - Use Lorax to create an installable ISO and PXE boot loader
-  cloud2ovf - Wrap a qcow2 image in OVF metadata for VMWare
   create-vm-disk - Deprecated in favor of imagefactory
   postprocess-disk - Deprecated; instead use imagefactory to generate multiple images
 """)
@@ -54,8 +52,6 @@ if __name__ == '__main__':
         treecompose.main()
     elif cmd == 'taskrunner':
         taskrunner.main()
-    elif cmd == 'cloud2ovf':
-        cloud2ovf.main()
     elif cmd in ['create-vm-disk', 'postprocess-disk', 'trivial-autocompose']:
         execgjs(cmd, sys.argv[1:])
     else:
