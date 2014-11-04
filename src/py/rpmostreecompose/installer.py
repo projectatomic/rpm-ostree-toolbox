@@ -98,7 +98,7 @@ def main():
     parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
     parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
-    parser.add_argument('--post', type=str, help='Run this %post script in interactive installs')
+    parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
 
