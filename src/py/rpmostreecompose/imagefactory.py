@@ -74,10 +74,7 @@ class ImgFacBuilder(ImgBuilder):
         plugin_mgr = PluginManager('/etc/imagefactory/plugins.d')
         plugin_mgr.load()
 
-        logfile = os.path.join(kwargs['workdir'], 'imgfac.log')
-
-        print "ImgFacBuilder logging to: " + logfile
-        self.fhandler = logging.FileHandler(logfile)
+        self.fhandler = logging.StreamHandler(sys.stdout)
         self.tlog = logging.getLogger()
         self.tlog.setLevel(logging.DEBUG)
         self.tlog.addHandler(self.fhandler)
