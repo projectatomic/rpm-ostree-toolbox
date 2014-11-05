@@ -18,6 +18,7 @@
 const GLib = imports.gi.GLib;
 const Gio = imports.gi.Gio;
 const Lang = imports.lang;
+const Format = imports.format;
 const OSTree = imports.gi.OSTree;
 const Guestfs = imports.gi.Guestfs;
 const Toolbox = imports.gi.Toolbox;
