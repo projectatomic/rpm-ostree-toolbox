@@ -26,6 +26,7 @@ Requires: python
 Requires: python-iniparse
 Requires: pygobject2
 Requires: gjs
+Requires: libvirt-python
 Requires: libguestfs-tools-c
 Requires: libguestfs-gobject
 # Needed for libguests

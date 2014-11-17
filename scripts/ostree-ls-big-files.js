@@ -63,10 +63,19 @@ sizes.sort(function(a,b) {
 	return 0;
 });
 
-for (let i = 0; i < 100 && i < sizes.length; i++) {
+let total = 0;
+let max = 500;
+let i;
+for (i = 0; i < sizes.length; i++) {
     let [path,size] = sizes[i];
-    print("" + size + " " + path.get_path());
+    total += size;
+    if (i < max)
+	print("" + size + " " + path.get_path());
 }
+let rest = sizes.length - max;
+if (rest > 0)
+    print("...and " + rest + " more");
+print("total: " + total);
 
 
 

@@ -26,6 +26,9 @@ import subprocess
 import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 from iniparse import INIConfig
+import libvirt
+import xml.etree.ElementTree as ET
+
 
 from imgfac.PersistentImageManager import PersistentImageManager
 
@@ -189,9 +192,11 @@ class ImageFactoryTask(TaskBase):
 
         # TODO: Pull kickstart from separate git repo
         ksdata = open(flattened_ks).read()
+        host_ip = getDefaultIP() 
         substitutions = { 'OSTREE_PORT': httpd_port,
                           'OSTREE_REF':  self.ref,
-                          'OSTREE_OSNAME':  self.os_name }
+                          'OSTREE_OSNAME':  self.os_name,
+                          'OSTREE_HOST_IP': host_ip }
         for subname, subval in substitutions.iteritems():
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
@@ -257,6 +262,22 @@ class ImageFactoryTask(TaskBase):
 
 ## End Composer
 
+def getDefaultIP():
+    """
+    This method determines returns the IP of the atomic host, which
+    is used by the kickstart file to find the atomic repository. If it
+    cannot determine it via the default KVM network, it will fatally
+    die and suggest the user define it in the KS file.
+    """
+    conn=libvirt.open()
+    try:
+        interface = conn.networkLookupByName("default")
+    except:
+        print "Unable to automatically determine your default KVM network. You can define the IP address of your atomic host repository in the kickstart file.  Simply replace @OSTREE_HOST_IP@ with the IP you want to use."
+        exit(1)
+    root = ET.fromstring(interface.XMLDesc())
+    ip = root.find("ip").get('address')
+    return ip
 
 def checkoz():
     """
