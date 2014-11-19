@@ -458,6 +458,12 @@ sub our_branch_name {
             chomp( my $head = <$fh> );
             close $fh;
 
+            # eg 'ref: refs/heads/mybranch'
+            if ($head =~ m{ref:\s+.*/([^/\s]+)}) {
+                return $1;
+            }
+
+            # just plain 'mybranch' (we hope)
             return $head;
         }
 
