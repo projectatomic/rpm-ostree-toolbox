@@ -192,14 +192,15 @@ class ImageFactoryTask(TaskBase):
 
         # TODO: Pull kickstart from separate git repo
         ksdata = open(flattened_ks).read()
-        host_ip = getDefaultIP() 
         substitutions = { 'OSTREE_PORT': httpd_port,
                           'OSTREE_REF':  self.ref,
-                          'OSTREE_OSNAME':  self.os_name,
-                          'OSTREE_HOST_IP': host_ip }
+                          'OSTREE_OSNAME':  self.os_name}
+        if '@OSTREE_HOST_IP@' in ksdata:
+            host_ip = getDefaultIP()
+            substitutions['OSTREE_HOST_IP'] = host_ip
+
         for subname, subval in substitutions.iteritems():
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
-
         parameters =  { "install_script": ksdata,
                         "generate_icicle": False,
                       }
