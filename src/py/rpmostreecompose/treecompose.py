@@ -136,9 +136,6 @@ class Treecompose(TaskBase):
                 os.makedirs(rpmostreecachedir)
         rpmostreecmd.append(self.jsonfilename)
 
-        if self.output_repodata_dir:
-            rpmostreecmd.append('--output-repodata-dir=' + self.output_repodata_dir)
-
         subprocess.check_call(rpmostreecmd)
         _,newrev = self.repo.resolve_rev(self.ref, True)
         return (origrev, newrev)

@@ -33,7 +33,7 @@ class TaskBase(object):
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
-              'selinux', 'output_repodata_dir', 'configdir'
+              'selinux', 'configdir'
             ]
 
     def __init__(self, args, cmd, profile=None):
@@ -43,7 +43,6 @@ class TaskBase(object):
         defaults = { 'workdir': None,
                      'pkgdatadir':  os.environ['OSTBUILD_DATADIR'],
                      'yum_baseurl': None,
-                     'output_repodata_dir': None,
                      'local_overrides': None,
                      'selinux': True
                    }
