@@ -160,7 +160,7 @@ class ImageFactoryTask(TaskBase):
     def create(self, outputdir, name, ksfile, tdl, imageouttypes):
         self._name = name
         self._tdl = tdl
-        self._kickstart = ksfile 
+        self._kickstart = ksfile
 
         [res, rev] = self.repo.resolve_rev(self.ref, False)
         [res, commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
@@ -213,9 +213,13 @@ class ImageFactoryTask(TaskBase):
         # image uuid
 
         # self.builder.download()
-        # myuuid = "32a2d0b8-da84-415c-aec6-90bb5a7f8e8b"
+        # myuuid = "6dd8a6a4-a1c5-4684-8876-d90cf9dce8b6"
         # pim = PersistentImageManager.default_manager()
         # image = pim.image_with_id(myuuid)
+
+        imageoutputdir = os.path.join(outputdir, "images")
+        if not os.path.exists(imageoutputdir):
+            os.mkdir(imageoutputdir)
 
         # This should probably be broken out to a sep. function
 
@@ -225,7 +229,7 @@ class ImageFactoryTask(TaskBase):
 
             print "Processing image from raw to qcow2"
             print image.data
-            outputname = os.path.join(outputdir, '%s.qcow2' % (self._name))
+            outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self._name))
             print outputname
 
             # We use compat=0.10 to ensure we run on RHEL6 era QEMU
@@ -236,7 +240,7 @@ class ImageFactoryTask(TaskBase):
         if 'kvm' in imageouttypes:
             print "Processing image from qcow2 to raw"
             print image.data
-            outputname = os.path.join(outputdir, '%s.raw' % (self._name))
+            outputname = os.path.join(imageoutputdir, '%s.raw' % (self._name))
             print outputname 
 
             qemucmd = ['qemu-img', 'convert', '-f', 'raw', '-O', 'qcow2', image.data, outputname]
@@ -245,12 +249,17 @@ class ImageFactoryTask(TaskBase):
 
         shutil.copyfile(image.data, target)
         print "Created: " + target
-
+        # Below Not needed after ozoverrides are enabled
+        if 'raw' in imageouttypes:
+            imageouttypes.pop(imageouttypes.index("raw"))
+        if 'kvm' in imageouttypes:
+            imageouttypes.pop(imageouttypes.index("kvm"))
+        # Above Not needed after ozoverrides are enabled
         for imagetype in imageouttypes:
             print "Creating {0} image".format(imagetype)
             target_image = self.builder.buildimagetype(imagetype, image.identifier)
             infile = target_image.data
-            outfile = os.path.join(outputdir, '%s-%s.ova' % (self._name, imagetype))
+            outfile = os.path.join(imageoutputdir, '%s-%s.ova' % (self._name, imagetype))
             shutil.copyfile(infile, outfile)
 
     @property
@@ -324,29 +333,30 @@ def parseimagetypes(imagetypes):
     return imagetypes
 
 
-def main():
+def main(cmd):
     parser = argparse.ArgumentParser(description='Use ImageFactory to create a disk image')
     parser.add_argument('-c', '--config', default='config.ini', type=str, help='Path to config file')
     parser.add_argument('-i', '--images', help='Output image formats in list format', action='append')
-    parser.add_argument('--name', type=str, required=True, help='Image name') 
-    parser.add_argument('--tdl', type=str, required=True, help='TDL file') 
-    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
-    parser.add_argument('-k', '--kickstart', type=str, required=True, help='Path to kickstart') 
-    parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
+    parser.add_argument('--name', type=str, required=False, help='Image name')
+    parser.add_argument('--tdl', type=str, required=False, help='TDL file')
+    parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
+    parser.add_argument('-k', '--kickstart', type=str, required=False, help='Path to kickstart') 
+    parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
      
     imagetypes = parseimagetypes(args.images)
 
-    composer = ImageFactoryTask(args.config, release=args.release)
+    composer = ImageFactoryTask(args, cmd, profile=args.profile)
+
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
     try:
-        composer.create(outputdir=args.outputdir,
-                        name=args.name,
-                        ksfile=args.kickstart,
-                        tdl=args.tdl,
+        composer.create(outputdir=getattr(composer, 'outputdir'),
+                        name=getattr(composer, 'name'),
+                        ksfile=getattr(composer, 'kickstart'),
+                        tdl=getattr(composer, 'tdl'),
                         imageouttypes=imagetypes
                         )
     finally:

@@ -33,13 +33,13 @@ class TaskBase(object):
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
-              'selinux', 'output_repodata_dir',
+              'selinux', 'output_repodata_dir', 'configdir'
             ]
 
-    def __init__(self, configfile, release=None):
+    def __init__(self, args, cmd, profile=None):
         self._repo = None
-
-        assert release is not None
+        configfile = args.config
+        assert profile is not None
         defaults = { 'workdir': None,
                      'pkgdatadir':  os.environ['OSTBUILD_DATADIR'],
                      'yum_baseurl': None,
@@ -50,27 +50,69 @@ class TaskBase(object):
 
         if not os.path.exists(configfile):
             fail_msg("No config file: " + configfile)
-
         settings = iniparse.ConfigParser()
         settings.read(configfile)
+        self.checkini(settings, profile, configfile)
         for attr in self.ATTRS:
             try:
-                val = settings.get(release, attr)
+                val = settings.get(profile, attr)
             except (iniparse.NoOptionError, iniparse.NoSectionError), e:
                 try:
                     val = settings.get('DEFAULT', attr)
                 except iniparse.NoOptionError, e:
                     val = defaults.get(attr)
+                    #print "Unable to find {0}, falling back to the value {1}".format(attr, val)
+            print (attr, val)
             setattr(self, attr, val)
+
+        release = getattr(self, 'release')
+        # Check for configdir in attrs, else fallback to pwd
+        if getattr(self, 'configdir') is None:
+            setattr(self, 'configdir', str(os.getcwd()) + "/")
 
         if self.tree_file is None:
             fail_msg("No tree file was provided")
+        else:
+            self.tree_file = os.path.join(self.configdir, self.tree_file)
 
-        if not self.yum_baseurl:
-            if self.release in [ '21', 'rawhide' ]:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/development/%s/%s/os/' % (self.release, self.arch)
+        # Set outputdir if overriden by command line
+        if 'outputdir' in args and args.outputdir is not None:
+            setattr(self, 'outputdir', args.outputdir)
+
+        os_nr = "{0}-{1}".format(getattr(self, 'os_name'), getattr(self, 'release'))
+
+        # Set kickstart file from args, else fallback to default
+        if cmd == "imagefactory":
+            if 'kickstart' in args and args.kickstart is not None:
+                setattr(self, 'kickstart', args.kickstart)
             else:
-                self.yum_baseurl = 'http://download.fedoraproject.org/pub/fedora/linux/releases/%s/%s/os/' % (self.release, self.arch)
+                defks = "{0}.ks".format(os_nr)
+
+                setattr(self, 'kickstart', '{0}'.format(os.path.join(
+                    getattr(self, 'configdir'), defks)))
+                if not os.path.exists(getattr(self, 'kickstart')):
+                    fail_msg("No kickstart was passed with -k and {0} does not exist".format(getattr(self, 'kickstart')))
+
+        # Set tdl from args, else fallback to default
+        if cmd == "imagefactory":
+            if 'tdl' in args and args.tdl is not None:
+                setattr(self, 'tdl', args.tdl)
+            else:
+                deftdl = "{0}.tdl".format(os_nr)
+                setattr(self, 'tdl', '{0}'.format(os.path.join(
+                    getattr(self, 'configdir'), deftdl)))
+                if not os.path.exists(getattr(self, 'tdl')):
+                    fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(getattr(self, 'tdl')))
+
+        # Set name from args, else fallback to default
+        if 'name' in args and args.name is not None:
+            setattr(self, 'name', args.name)
+        else:
+            setattr(self, 'name', '{0}'.format(os_nr))
+
+        if cmd == "installer":
+            if not self.yum_baseurl and args.yum_baseurl == None:
+                fail_msg("No yum_baseurl was provided in your config.ini or with installer -b.")
 
         if self.http_proxy:
             os.environ['http_proxy'] = self.http_proxy
@@ -83,7 +125,23 @@ class TaskBase(object):
         self.buildjson()
 
         return
-    
+   
+    def checkini(self, settings, profile, configfile):
+        # If a release is passed via -r and does not exist, error out
+        if not settings.has_section(profile):
+            sections = settings.sections()
+            fail_msg("Section {0} is not defined in your config file ({1}). Valid sections/profiles are {2}".format(
+                profile, configfile, sections))
+        config_req = ['ostree_repo', 'os_name', 'os_pretty_name', 'outputdir',
+                      'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl',
+                      'configdir']
+        missing_confs = []
+        for req in config_req:
+            if not settings.has_option(profile, req):
+                missing_confs.append(req)
+        if len(missing_confs) > 0:
+            fail_msg("The following option(s) {0} are not defined in your configuration file.  Please define them and re-run".format(missing_confs))
+
     def flattenjsoninclude(self, params):
         """ This function merges a dict that represents a tree file
         with a json includefile. It's not rescursive now but could be
@@ -112,7 +170,10 @@ class TaskBase(object):
         json file in tempdir 
         """
 
-        json_in = open(self.tree_file)
+        try:
+            json_in = open(self.tree_file)
+        except:
+            fail_msg("Unable to locate the {0} as described in the config.ini".format(self.tree_file))
         params = json.load(json_in)
         if 'ref' not in 'params':
             params['ref']  = self.ref

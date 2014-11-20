@@ -93,16 +93,16 @@ class InstallerTask(TaskBase):
 
 ## End Composer
 
-def main():
+def main(cmd):
     parser = argparse.ArgumentParser(description='Create an installer image')
-    parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
-    parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
+    parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
+    parser.add_argument('-c', '--config', type=str, required=False, default='config.ini', help='Path to config file')
+    parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
-    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
+    parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
     args = parser.parse_args()
-
-    composer = InstallerTask(args.config, release=args.release)
+    composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()
 
     composer.create(args.outputdir, post=args.post)

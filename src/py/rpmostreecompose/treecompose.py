@@ -30,6 +30,7 @@ import iniparse
 from .taskbase import TaskBase
 from .utils import run_sync, fail_msg
 
+
 def _rev2version(repo, rev):
     _,oldrev = repo.resolve_rev(rev, True)
     if oldrev is None:
@@ -144,18 +145,16 @@ class Treecompose(TaskBase):
 
 ## End Composer
 
-def main():
+def main(cmd):
     parser = argparse.ArgumentParser(description='Compose OSTree tree')
     parser.add_argument('-c', '--config', type=str, default='config.ini', help='Path to config file')
-    parser.add_argument('-r', '--release', type=str, default='rawhide', help='Release to compose (references a config file section)')
+    parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-V', '--versioning', type=str, default='skip-or-refresh', help='Version to mark compose')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
-
-    composer = Treecompose(args.config, release=args.release)
+    composer = Treecompose(args, cmd, profile=args.profile)
     composer.tree_version = args.versioning
     composer.show_config()
-
     origrev, newrev = composer.compose_tree()
 
     if origrev != newrev:
