@@ -184,20 +184,20 @@ class TaskBase(object):
             params = self.flattenjsoninclude(params)
 
         # Need to flatten repos
-        if 'repos' in params:
-            self._copyrepos(params['repos'])
+        self._copyexternals(params)
         self.jsonfilename = os.path.join(self.workdir, os.path.basename(self.tree_file))
         self.jsonfile = open(self.jsonfilename, 'w')
         json.dump(params, self.jsonfile, indent=4)
         self.jsonfile.close()
 
-    def _copyrepos(self, repos):
+    def _copyexternals(self, params):
         """
-        This function takes a list of repository names, iterates
-        through them and copies them to tempdir
+        We're generating a new copy of the treefile, so we need
+        to also copy over any files it references.
         """
 
         treefile_base = os.path.dirname(self.tree_file)
+        repos = params.get('repos', [])
         for repo in repos:
             repo_filename = repo + '.repo'
             repo_path = os.path.join(treefile_base, repo_filename) 
@@ -207,6 +207,11 @@ class TaskBase(object):
                 shutil.copyfile(repo_path, os.path.join(self.workdir, repo_filename))
             except:
                 fail_msg("Unable to copy {0} to tempdir".format(repo_filename))
+        post_script = params.get('postprocess-script')
+        if post_script is not None:
+            shutil.copyfile(os.path.join(treefile_base, post_script),
+                            os.path.join(self.workdir, os.path.basename(post_script)))
+            
 
     @property
     def repo(self):
