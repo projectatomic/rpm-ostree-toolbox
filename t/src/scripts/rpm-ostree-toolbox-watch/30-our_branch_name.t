@@ -14,7 +14,13 @@ my $tempdir = make_test_directory();
 
 our $expected_branch_name = 'mybranch';
 
-plan tests => 1 + 1;
+# HEAD doesn't always have just the branch name; it can have other stuff too
+my %Branch_Name = (
+    # key: file content      value: actual branch name
+    'ref: refs/heads/foo' => 'foo',
+);
+
+plan tests => 1 + 1 + keys(%Branch_Name);
 
 # END   test setup
 ###############################################################################
@@ -31,6 +37,14 @@ chdir $tempdir
 
 is RpmOstreeToolbox::Watch::our_branch_name(), $expected_branch_name,
     "expected branch name";
+
+# Now the other tests
+for my $content (sort keys %Branch_Name) {
+    write_file('atomic/.git/HEAD', $content, "\n");
+
+    is RpmOstreeToolbox::Watch::our_branch_name(), $Branch_Name{$content},
+        $content;
+}
 
 # Clean up
 chdir '/';

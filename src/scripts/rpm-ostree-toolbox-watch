@@ -24,6 +24,9 @@ our $MyPrefix = 'rpm-ostree-toolbox';
 # The "./" is unnecessary but may be helpful for someone reading --help.
 our $Config_File = './config.ini';
 
+# Subdirectory under which to write logs. See log_file().
+our $Log_Subdir = 'tasks/treecompose';
+
 # Autoflush stdout
 $| = 1;
 
@@ -31,8 +34,14 @@ $| = 1;
 ###############################################################################
 
 use Config::IniFiles;
+use Cwd                 qw(cwd);
 use File::Basename      qw(dirname);
-use JSON::XS;
+use File::Path          qw(make_path);
+use IO::Select;                                 # for sysreadline()
+use JSON::XS;                                   # journalctl events are JSON
+use List::Util          qw(max);                # for formatting in log file
+use POSIX               qw(:sys_wait_h);        # for reaping children
+use Time::Piece;
 
 ###############################################################################
 # BEGIN boilerplate args checking, usage messages
@@ -136,7 +145,10 @@ sub main {
     monitor();
 }
 
-
+#############
+#  monitor  #  Main loop.  Starts (or queues) composes upon the right trigger.
+#############
+our $Job_Running;               # We can have only one at a time
 sub monitor {
     my @systemd_units = desired_systemd_units();
 
@@ -149,13 +161,34 @@ sub monitor {
         or die "$ME: could not fork: $!\n";
 
     # This is essentially an infinite loop on journalctl --follow
-    while (my $line = <$journalctl_fh>) {
-        print $line  if -t *STDIN;      # for debugging
-        chomp $line;
+    my @event_queue;
+    while (1) {
+        # Anything queued? Start a compose. We can have more than one event
+        # in the queue, say if multiple commits/repos come in while we're
+        # in the middle of a running compose. Flush them all at once: we
+        # can safely assume that our new compose will include all changes
+        # collected to date.
+        if (@event_queue && !$Job_Running) {
+            start_job(@event_queue);
+            @event_queue = ();
+        }
 
-        if (we_trigger_on($line)) {
-            # FIXME: do an actual trigger
-            print "***** TRIGGERED!\n";
+        # Check for journal lines. Loop again (i.e. check queue) in 10 seconds.
+        if (my $line = sysreadline($journalctl_fh, 10)) {
+            chomp $line;
+            print $line,"\n"  if -t *STDIN;      # for debugging
+
+            my $event = decode_json($line);
+            if (we_trigger_on($event)) {
+                push @event_queue, $event;
+
+                # If anyone's watching, let them know we made it here.
+                if ($Job_Running) {
+                    printf "triggered (%s: %s) but queued for later\n",
+                        $event->{_SYSTEMD_UNIT},
+                        $event->{MESSAGE};
+                }
+            }
         }
     }
 
@@ -163,14 +196,102 @@ sub monitor {
     close $journalctl_fh;
 }
 
+###############
+#  start_job  #  Fork and start a compose job.
+###############
+our %Child_Log;
+sub start_job {
+    my @events = @_;                            # in: one or more journal events
+
+    $SIG{CHLD} = \&REAPER;
+    my $log = log_file();
+
+    # Note that we use a global: this tells our caller not to schedule
+    # any more jobs. The var will be cleared by our SIGCHLD handler.
+    $Job_Running = fork;
+    die "$ME: Could not fork: $!\n" if ! defined $Job_Running;
+    if ($Job_Running) {
+        # We are the parent. Start a log entry, and go back to main loop.
+        $Child_Log{$Job_Running} = $log;
+        print "BEGIN compose; see $log\n";
+        return;
+    }
+
+    # Start writing to log. Send all our output to it.
+    open my $log_fh, '>>', $log
+        or die "$ME: Could not write to $log: $!\n";
+    open STDOUT, '>&', $log_fh
+        or die "$ME: Could not dup STDOUT: $!\n";
+    open STDERR, '>&', $log_fh
+        or die "$ME: Could not dup STDERR: $!\n";
+
+    # All output from here on is going to our log.
+    printf <<"END_LOG_HEADER", (@events == 1 ? '' : 's');
+###############################################################################
+#
+# Log created by $ME
+# Triggered by the following journal event%s:
+#
+END_LOG_HEADER
+
+    # There may have been more than one trigger event, e.g. if multiple
+    # commits/repos came in while we were already busy with a compose.
+    # Log them all.
+    my $separator = '';
+    for my $event (@events) {
+        print $separator; $separator = "# " . ("-" x 70) . "\n";
+        my @names = sort keys %$event;
+        my $maxlen = max map { length } @names;
+        printf "#    %-*s = %s\n", $maxlen, $_, $event->{$_} for @names;
+    }
+
+    print  "#\n";
+    printf "# %s BEGIN\n\n", localtime->datetime;
+
+    # First: git pull. It's OK if this fails.
+    # This should really be "git -C <dirname>" but git-1.8.3 (RHEL7) doesn't
+    # have -C. Fake it via cd, but since we don't want to change our
+    # actual cwd, use a string (subshell) instead of the cleaner list form.
+    my $cmd = sprintf("(cd %s && git pull -r)", dirname(tree_file()));
+    print "\$ $cmd\n";
+    system($cmd);
+    print  "\n";
+
+    # Next: treecompose.
+    my @cmd = ('rpm-ostree-toolbox', 'treecompose', '-c' => $Config_File);
+    print  "\$ @cmd\n";
+
+    my $rc  = 0;
+    my $msg = "success";
+    if (system(@cmd) != 0) {
+        $msg = "ERROR: ";
+        $rc  = 255;
+        if ($? == -1) {
+            $msg .= "failed to execute: $!";
+        }
+        elsif ($? & 127) {
+            $msg .= sprintf("died with signal %d", $? & 127);
+        }
+        else {
+            $rc = $? >> 8;
+            $msg .= sprintf("status=%d", $rc);
+        }
+    }
+
+    printf <<"END_LOG_TAIL", localtime->datetime, $msg;
+
+# %s FINISHED: %s
+###############################################################################
+END_LOG_TAIL
+
+    exit $rc;
+}
+
 ###################
-#  we_trigger_on  #  Given a journal line, do we trigger on it?
+#  we_trigger_on  #  Given a journal event, do we trigger on it?
 ###################
 sub we_trigger_on {
-    my $line = shift;                   # in: entire line from journalctl
-
-    # Input line is JSON.
-    my $event = decode_json($line);
+    my $event = shift;                  # in: decoded event from journal
 
     # eg "rpm-ostree-toolbox-git-monitor.service"
     my $tool = $event->{_SYSTEMD_UNIT}
@@ -195,7 +316,9 @@ sub we_trigger_on {
     return $handler->($message);
 }
 
-
+##########################
+#  desired_system_units  #  returns all <prefix>-<name>-monitor systemd units
+##########################
 sub desired_systemd_units {
     my @units;
     my @list_units_cmd = ('systemctl', 'list-units');
@@ -213,6 +336,36 @@ sub desired_systemd_units {
     die "$ME: did not find any running services to monitor (via @list_units_cmd), aborting.\n" if !@units;
 
     return @units;
+}
+
+##############
+#  log_file  #  Returns absolute path to our desired log file
+##############
+#
+# Takes no arguments but uses current directory and date as its inputs.
+# Creates all interim directories.
+#
+sub log_file {
+    my $cwd = cwd();
+    my $t   = localtime;                # FIXME: gmtime instead?
+
+    # eg /srv/mybranch/tasks/treecompose/2014/11/03/05h2501
+    my $dir = sprintf("%s/%s/%d/%02d/%02d/%02dh%02d%02d",
+                      $cwd,
+                      $Log_Subdir,
+                      $t->year, $t->mon, $t->mday,
+                      $t->hour, $t->minute, $t->second);
+
+    # UNLIKELY: does the log directory already exist? Append a sequence number.
+    if (-d $dir) {
+        my $i = 1;
+        $i++ while -d "$dir.$i";
+        $dir .= ".$i";
+    }
+
+    make_path($dir, { verbose => 0, mode => 02755 });
+
+    return "$dir/output.txt";
 }
 
 ###############################################################################
@@ -305,6 +458,12 @@ sub our_branch_name {
             chomp( my $head = <$fh> );
             close $fh;
 
+            # eg 'ref: refs/heads/mybranch'
+            if ($head =~ m{ref:\s+.*/([^/\s]+)}) {
+                return $1;
+            }
+
+            # just plain 'mybranch' (we hope)
             return $head;
         }
 
@@ -355,6 +514,73 @@ sub read_json {
 }
 
 # END   helpers for handlers
+###############################################################################
+# BEGIN scaffolding
+
+#################
+#  sysreadline  #  line-by-line read, with timeout
+#################
+#
+# mostly copied from Perl Cookbook 7.23
+#
+our $Sysreadline_Pending;
+sub sysreadline {
+    my ($fh, $timeout) = @_;
+
+    # Any lines pending from an earlier call? Return them instantly.
+    $Sysreadline_Pending //= '';
+    if ($Sysreadline_Pending =~ s/^(.*)\n//) {
+        return $1;
+    }
+
+    # Nothing pending. Check the filehandle itself.
+    my $selector = IO::Select->new;
+    $selector->add($fh);
+    return unless $selector->can_read($timeout);
+
+    # If we get here, there's *something* in our filehandle. Read it all.
+    # Assume that we won't get any partial lines, but we _may_ get more
+    # than one line. If we do, save them for later.
+    $fh->blocking(0);
+    while (sysread($fh, my $buffer, 2048)) {
+        $Sysreadline_Pending .= $buffer;
+    }
+
+    return if length($Sysreadline_Pending) == 0;
+
+    $Sysreadline_Pending =~ s/^(.*)\n//
+        or die "$ME: Internal error: unexpected incomplete line from journal";
+    return $1;
+}
+
+# END   scaffolding
+###############################################################################
+# BEGIN child process cleanup
+
+############
+#  REAPER  #  Cleans up a finished job, and logs its status (to systemd journal)
+############
+sub REAPER {
+    # There may be more than one child.
+    while ((my $kidpid = waitpid(-1, WNOHANG)) > 0) {
+        if (my $log = delete $Child_Log{$kidpid}) {
+            # The usual case: we have a log file for this child
+            printf "END   compose; status=%d; see %s\n", $?, $log;
+        }
+        else {
+            # Maybe if there's an error creating the log file? If so
+            # our journal probably has the child's error message.
+            printf "END   compose; status=%d; log unavailable?!\n", $?;
+        }
+    }
+
+    # Scheduler is now free to start a new compose.
+    undef $Job_Running;
+
+    $SIG{CHLD} = \&REAPER;
+}
+
+# END   child process cleanup
 ###############################################################################
 
 1;
