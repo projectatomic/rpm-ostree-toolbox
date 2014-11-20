@@ -209,8 +209,7 @@ class TaskBase(object):
                 fail_msg("Unable to copy {0} to tempdir".format(repo_filename))
         post_script = params.get('postprocess-script')
         if post_script is not None:
-            shutil.copyfile(os.path.join(treefile_base, post_script),
-                            os.path.join(self.workdir, os.path.basename(post_script)))
+            shutil.copy2(os.path.join(treefile_base, post_script), self.workdir)
             
 
     @property
