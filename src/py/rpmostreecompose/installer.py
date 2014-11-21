@@ -100,7 +100,7 @@ def main(cmd):
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
-    parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
+    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
     composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()
