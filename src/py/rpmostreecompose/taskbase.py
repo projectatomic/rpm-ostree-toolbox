@@ -66,9 +66,9 @@ class TaskBase(object):
             setattr(self, attr, val)
 
         release = getattr(self, 'release')
-        # Check for configdir in attrs, else fallback to pwd
+        # Check for configdir in attrs, else fallback to dir holding config
         if getattr(self, 'configdir') is None:
-            setattr(self, 'configdir', str(os.getcwd()) + "/")
+            setattr(self, 'configdir', os.path.dirname(configfile))
 
         if self.tree_file is None:
             fail_msg("No tree file was provided")
@@ -133,8 +133,7 @@ class TaskBase(object):
             fail_msg("Section {0} is not defined in your config file ({1}). Valid sections/profiles are {2}".format(
                 profile, configfile, sections))
         config_req = ['ostree_repo', 'os_name', 'os_pretty_name', 'outputdir',
-                      'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl',
-                      'configdir']
+                      'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl']
         missing_confs = []
         for req in config_req:
             if not settings.has_option(profile, req):
