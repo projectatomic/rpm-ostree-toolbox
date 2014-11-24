@@ -51,7 +51,11 @@ class TaskBase(object):
         if not os.path.exists(configfile):
             fail_msg("No config file: " + configfile)
         settings = iniparse.ConfigParser()
+        
         settings.read(configfile)
+        outputdir = settings.get('DEFAULT', 'outputdir', "")
+        if outputdir == "":
+            settings.set('DEFAULT', 'outputdir', os.getcwd())
         self.checkini(settings, profile, configfile)
         for attr in self.ATTRS:
             try:
