@@ -125,6 +125,13 @@ class TaskBase(object):
         self.buildjson()
 
         return
+
+    @staticmethod
+    def baseargs():
+        """ Retrieve the default arguments applicable to all tasks. """
+        parser = argparse.ArgumentParser(description='Toolbox task arguments', add_help=False)
+        parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
+        return parser
    
     def checkini(self, settings, profile, configfile):
         # If a release is passed via -r and does not exist, error out

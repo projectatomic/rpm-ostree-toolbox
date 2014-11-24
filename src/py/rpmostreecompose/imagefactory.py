@@ -331,8 +331,8 @@ def parseimagetypes(imagetypes):
 
 
 def main(cmd):
-    parser = argparse.ArgumentParser(description='Use ImageFactory to create a disk image')
-    parser.add_argument('-c', '--config', default='config.ini', type=str, help='Path to config file')
+    parser = argparse.ArgumentParser(description='Use ImageFactory to create a disk image',
+                                     parents=[TaskBase.baseargs()])
     parser.add_argument('-i', '--images', help='Output image formats in list format', action='append')
     parser.add_argument('--name', type=str, required=False, help='Image name')
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')

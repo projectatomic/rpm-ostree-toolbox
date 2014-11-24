@@ -143,8 +143,8 @@ class Treecompose(TaskBase):
 ## End Composer
 
 def main(cmd):
-    parser = argparse.ArgumentParser(description='Compose OSTree tree')
-    parser.add_argument('-c', '--config', type=str, default='config.ini', help='Path to config file')
+    parser = argparse.ArgumentParser(description='Compose OSTree tree',
+                                     parents=[TaskBase.baseargs()])
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-V', '--versioning', type=str, default='skip-or-refresh', help='Version to mark compose')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')

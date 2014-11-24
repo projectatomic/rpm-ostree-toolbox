@@ -94,9 +94,9 @@ class InstallerTask(TaskBase):
 ## End Composer
 
 def main(cmd):
-    parser = argparse.ArgumentParser(description='Create an installer image')
+    parser = argparse.ArgumentParser(description='Create an installer image',
+                                     parents=[TaskBase.baseargs()])
     parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
-    parser.add_argument('-c', '--config', type=str, required=False, default='config.ini', help='Path to config file')
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
