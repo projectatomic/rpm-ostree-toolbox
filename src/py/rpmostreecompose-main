@@ -20,7 +20,7 @@ import os
 import sys
 
 from rpmostreecompose import imagefactory, installer, treecompose
-from rpmostreecompose import taskrunner
+from rpmostreecompose import taskrunner, version
 
 def execgjs(cmd, argv):
     jsdir=os.path.join(os.environ['OSTBUILD_DATADIR'] + '/js')
@@ -39,13 +39,17 @@ def usage(iserr):
 """)
     sys.exit(1 if iserr else 0)
 
-if __name__ == '__main__':
-    print "%r" % (sys.argv, )
+def main():
     if len(sys.argv) <= 1:
         usage(False)
     if os.getuid() != 0:
         print "\nrpm-ostee-toolbox requires you to run as root"
-        exit(1)
+        sys.exit(1)
+    if str(sys.argv[1]).lower() == '-h' or str(sys.argv[1]).lower() == '--help':
+        usage(False)
+    if str(sys.argv[1]).lower() == '-v' or str(sys.argv[1]).lower() == '--version':
+        print 'rpm-ostree-toolbox %s' % (version.version)
+        sys.exit(0)
     cmd = sys.argv.pop(1)
     if cmd == 'imagefactory':
         imagefactory.main(cmd)
@@ -58,5 +62,9 @@ if __name__ == '__main__':
     elif cmd in ['create-vm-disk', 'postprocess-disk', 'trivial-autocompose']:
         execgjs(cmd, sys.argv[1:])
     else:
-        sys.stderr.write("""Unknown builtin: %s""" % (cmd, ))
+        sys.stderr.write("""Unknown argument: %s\n""" % (cmd, ))
         usage(True)
+
+if __name__ == '__main__':
+    main()
+    pass

@@ -86,6 +86,7 @@ pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/installer.py \
 	src/py/rpmostreecompose/versioneddir.py \
 	src/py/rpmostreecompose/taskrunner.py \
+	src/py/rpmostreecompose/version.py \
 	$(NULL)
 
 pytoolboxdatavagrantdir = $(pytoolboxdatadir)/vagrant

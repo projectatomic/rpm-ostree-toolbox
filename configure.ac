@@ -40,7 +40,8 @@ AM_PATH_PYTHON
 GOBJECT_INTROSPECTION_REQUIRE([1.34.0])
 
 AC_CONFIG_FILES([
-Makefile
+        Makefile
+        src/py/rpmostreecompose/version.py
 ])
 AC_OUTPUT
 
