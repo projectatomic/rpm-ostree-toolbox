@@ -218,7 +218,8 @@ class TaskBase(object):
         if not os.path.exists(self.ostree_repo):
             #  Remove the cache, if the repo. is gone ... or rpm-ostree is very
             # confused.
-            if os.path.exists(self.rpmostree_cache_dir):
+            if (self.rpmostree_cache_dir is not None and
+                os.path.exists(self.rpmostree_cache_dir)):
                 shutil.rmtree(self.rpmostree_cache_dir)
             os.makedirs(self.ostree_repo)
             subprocess.check_call(['ostree', 'init',
