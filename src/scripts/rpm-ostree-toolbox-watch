@@ -34,7 +34,7 @@ $| = 1;
 ###############################################################################
 
 use Config::IniFiles;
-use Cwd                 qw(cwd);
+use Cwd                 qw(cwd abs_path);
 use File::Basename      qw(dirname);
 use File::Path          qw(make_path);
 use IO::Select;                                 # for sysreadline()
@@ -495,6 +495,12 @@ sub tree_file {
             or die "$ME: $Config_File: No setting for '$s' in tree_file value '$tree_file'\n";
         $val;
     }ge;
+
+    # If tree_file is a relative path, absolutize it. Make sure we do so
+    # relative to the actual location of $Config_File, which may be a symlink
+    if ($tree_file !~ m|^/|) {
+        $tree_file = dirname(abs_path($Config_File)) . "/" . $tree_file;
+    }
 
     return $tree_file;
 }
