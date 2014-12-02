@@ -72,7 +72,7 @@ class TaskBase(object):
         release = getattr(self, 'release')
         # Check for configdir in attrs, else fallback to dir holding config
         if getattr(self, 'configdir') is None:
-            setattr(self, 'configdir', os.path.dirname(configfile))
+            setattr(self, 'configdir', os.path.dirname(os.path.realpath(configfile)))
 
         if self.tree_file is None:
             fail_msg("No tree file was provided")
