@@ -33,7 +33,7 @@ class TaskBase(object):
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
-              'selinux', 'configdir'
+              'selinux', 'configdir', 'docker_os_name'
             ]
 
 
@@ -98,7 +98,7 @@ class TaskBase(object):
                     fail_msg("No kickstart was passed with -k and {0} does not exist".format(getattr(self, 'kickstart')))
 
         # Set tdl from args, else fallback to default
-        if cmd == "imagefactory":
+        if cmd in ["imagefactory"] or ( cmd in ['installer'] and args.virt ):
             if 'tdl' in args and args.tdl is not None:
                 setattr(self, 'tdl', args.tdl)
             else:
@@ -117,6 +117,14 @@ class TaskBase(object):
         if cmd == "installer":
             if not self.yum_baseurl and args.yum_baseurl == None:
                 fail_msg("No yum_baseurl was provided in your config.ini or with installer -b.")
+
+            # Set util_uuid
+            self.util_uuid = args.util_uuid
+
+            if not args.util_uuid and not args.util_tdl and args.virt:
+                fail_msg ("You must provide a TDL for your utility image with --util_tdl")
+            else:
+                self.util_tdl = args.util_tdl
 
         if self.http_proxy:
             os.environ['http_proxy'] = self.http_proxy
@@ -144,7 +152,8 @@ class TaskBase(object):
             fail_msg("Section {0} is not defined in your config file ({1}). Valid sections/profiles are {2}".format(
                 profile, configfile, sections))
         config_req = ['ostree_repo', 'os_name', 'os_pretty_name', 'outputdir',
-                      'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl']
+                      'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl',
+                      'docker_os_name']
         missing_confs = []
         for req in config_req:
             if not settings.has_option(profile, req):

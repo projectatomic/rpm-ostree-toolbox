@@ -1,0 +1,11 @@
+<%page args='root'/>
+mkdir install/ostree
+runcmd ostree --repo=${root}/install/ostree init --mode=archive-z2
+runcmd ostree remote add ostree-mirror --repo=${root}/install/ostree/ --set=gpg-verify=false http://@OSTREE_HOSTIP@:@OSTREE_PORT@
+runcmd ostree --repo=${root}/install/ostree/ pull --mirror ostree-mirror @OSTREE_REF@
+
+
+append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=@OSTREE_OSNAME@ --remote=@OSTREE_OSNAME@ --url=file:///install/ostree --ref=@OSTREE_REF@\n"
+append usr/share/anaconda/interactive-defaults.ks "services --disabled cloud-init,cloud-config,cloud-final,cloud-init-local\n"
+append usr/share/anaconda/interactive-defaults.ks "%post --erroronfail\nrm -f /etc/ostree/remotes.d/@OSTREE_OSNAME@.conf\n%end\n"
+

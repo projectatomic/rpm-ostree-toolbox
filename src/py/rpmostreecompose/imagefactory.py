@@ -81,8 +81,8 @@ class ImgFacBuilder(ImgBuilder):
         self.tlog = logging.getLogger()
         self.tlog.setLevel(logging.DEBUG)
         self.tlog.addHandler(self.fhandler)
- 
-        global verbosemode
+        verbosemode = kwargs.get('verbosemode', False)
+
         if verbosemode:
             ch = logging.StreamHandler(sys.stdout)
             ch.setLevel(logging.DEBUG)
@@ -235,7 +235,6 @@ class ImageFactoryTask(TaskBase):
             print outputname
 
             qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
-            imageouttypes.pop(imageouttypes.index("raw"))
             subprocess.check_call(qemucmd)
             imageouttypes.pop(imageouttypes.index("raw"))
             print "Created: {0}".format(outputname)
@@ -255,7 +254,8 @@ class ImageFactoryTask(TaskBase):
     def builder(self):
         # TODO: option to switch to koji builder
         if True:
-            return ImgFacBuilder(workdir=self.workdir)
+            global verbosemode
+            return ImgFacBuilder(workdir=self.workdir, verbosemode=verbosemode)
         else:
             return KojiBuilder()
 

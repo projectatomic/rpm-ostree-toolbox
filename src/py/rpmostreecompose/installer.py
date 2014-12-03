@@ -18,93 +18,281 @@
 
 import json
 import os
-import sys
-import tempfile
 import argparse
-import shutil
 import subprocess
-import distutils.spawn
-from gi.repository import Gio, OSTree, GLib
-import iniparse
+import oz.TDL
+import oz.GuestFactory
+import tarfile
 
 from .taskbase import TaskBase
-from .utils import run_sync, fail_msg
+from .utils import fail_msg, run_sync
+from .imagefactory import ImageFunctions
+from .imagefactory import ImgFacBuilder
+from imgfac.BuildDispatcher import BuildDispatcher
+from imgfac.PersistentImageManager import PersistentImageManager
+from xml.etree import ElementTree as ET
+from .imagefactory import getDefaultIP
+
 
 class InstallerTask(TaskBase):
-    def create(self, outputdir, post=None):
-        [res,rev] = self.repo.resolve_rev(self.ref, False)
-        [res,commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
+    container_id = ""
 
-        commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
-        print commitdate
+    def getrepos(self, flatjson):
+        fj = open(flatjson)
+        fjparams = json.load(fj)
+        repos = ""
+        for repo in fjparams['repos']:
+            repofile = os.path.join(getattr(self, 'configdir'), repo + ".repo")
+            repos = repos + open(repofile).read()
+            repos = repos + "enabled=1"
+            repos = repos + "\n"
+        return repos
 
-        lorax_opts = []
-        if self.local_overrides:
-            lorax_opts.extend([ '-s', self.local_overrides ])
+    def template_xml(self, repos, tmplfilename):
+        tree = ET.parse(tmplfilename)
+        root = tree.getroot()
+        files = root.find('files')
+        yumrepos = ET.SubElement(files, "file", {'name': '/etc/yum.repos.d/atomic.repo'})
+        yumrepos.text = repos
+        return ET.tostring(root)
+
+    def dumpTempMeta(self, fullpathname, tmpstr):
+        tmp_file = open(fullpathname, 'w')
+        tmp_file.write(tmpstr)
+        tmp_file.close()
+        print "Wrote {0}".format(fullpathname)
+        return fullpathname
+
+    def createUtilKS(self, tdl):
+        util_post = """
+%post
+# For cloud images, 'eth0' _is_ the predictable device name, since
+# we don't want to be tied to specific virtual (!) hardware
+rm -f /etc/udev/rules.d/70*
+ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
+
+# simple eth0 config, again not hard-coded to the build hardware
+cat > /etc/sysconfig/network-scripts/ifcfg-eth0 << EOF
+DEVICE="eth0"
+BOOTPROTO="dhcp"
+ONBOOT="yes"
+TYPE="Ethernet"
+PERSISTENT_DHCLIENT="yes"
+EOF
+%end
+"""
+        util_tdl = oz.TDL.TDL(open(tdl).read())
+        oz_class = oz.GuestFactory.guest_factory(util_tdl, None, None)
+        util_ksname = oz_class.get_auto_path()
+        util_ks = open(util_ksname).read()
+        util_ks = util_ks + util_post
+        util_ksfilename = os.path.join(self.workdir, os.path.basename(util_ksname.replace(".auto", ".ks")))
+
+        # Write out to tmp file in workdir
+        self.dumpTempMeta(util_ksfilename, util_ks)
+
+        return util_ks
+
+    def returnDockerFile(self):
+        docker_subs = {'DOCKER_OS': getattr(self, 'docker_os_name')}
+        docker_file = """
+FROM @DOCKER_OS@
+ADD lorax.repo /etc/yum.repos.d/
+ADD lorax.tmpl /root/
+ADD lorax.sh /root/
+RUN chmod u+x /root/lorax.sh
+RUN yum -y update && yum -y clean all
+RUN yum -y swap fakesystemd systemd && yum -y clean all
+RUN yum -y install ostree lorax && yum -y clean all
+CMD ["/bin/sh", "/root/lorax.sh"]
+        """
+
+        for subname, subval in docker_subs.iteritems():
+            docker_file = docker_file.replace('@%s@' % (subname, ), subval)
+
+        return docker_file, getattr(self, 'docker_os_name')
+
+    def createContainer(self, outputdir, post=None):
+        imgfunc = ImageFunctions()
+        repos = self.getrepos(self.jsonfilename)
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
+        lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
+        lorax_repos = []
         if self.lorax_additional_repos:
+            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
+                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
             for repourl in self.lorax_additional_repos.split(','):
-                lorax_opts.extend(['-s', repourl.strip()])
-        http_proxy = os.environ.get('http_proxy')
-        if http_proxy:
-            lorax_opts.extend([ '--proxy', http_proxy ])
+                lorax_repos.extend(['-s', repourl.strip()])
+        else:
+            lorax_repos.append('-s {0}'.format(getattr(self, 'yum_baseurl')))
+        port_file_path = self.workdir + '/repo-port'
+        subprocess.check_call(['ostree',
+                               'trivial-httpd', '--autoexit', '--daemonize',
+                               '--port-file', port_file_path],
+                              cwd=self.ostree_repo)
 
-        template_src = self.pkgdatadir + '/lorax-embed-repo.tmpl'
-        template_dest = self.workdir + '/lorax-embed-repo.tmpl'
-        shutil.copy(template_src, template_dest)
+        httpd_port = open(port_file_path).read().strip()
+        substitutions = {'OSTREE_PORT': httpd_port,
+                         'OSTREE_REF':  self.ref,
+                         'OSTREE_OSNAME':  self.os_name,
+                         'LORAX_REPOS': " ".join(lorax_repos),
+                         'OS_PRETTY': self.os_pretty_name,
+                         'OS_VER': self.release
+                         }
+        if '@OSTREE_HOSTIP@' in lorax_tmpl:
+            host_ip = "localhost"
+            substitutions['OSTREE_HOSTIP'] = host_ip
 
-        if post is not None:
-            # Yeah, this is pretty awful.
-            post_str = '%r' % ('%post --erroronfail\n' + open(post).read() + '\n%end\n', )
-            with open(template_dest, 'a') as f:
-                f.write('\nappend usr/share/anaconda/interactive-defaults.ks %s\n' % (post_str, ))
+        for subname, subval in substitutions.iteritems():
+            print subname
+            lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
-        lorax_workdir = os.path.join(self.workdir, 'lorax')
-        os.makedirs(lorax_workdir)
-        run_sync(['lorax', '--nomacboot',
-                  '--add-template=%s' % template_dest,
-                  '--add-template-var=ostree_osname=%s' % self.os_name,
-                  '--add-template-var=ostree_repo=%s' % self.ostree_repo,
-                  '--add-template-var=ostree_ref=%s' % self.ref,
-                  '-p', self.os_pretty_name, '-v', self.release,
-                  '-r', self.release, '-s', self.yum_baseurl,
-                  '-e', 'systemd-container',
-                  ] + lorax_opts + ['output'],
-                 cwd=lorax_workdir)
-        # We injected data into boot.iso, so it's now installer.iso
-        lorax_output = lorax_workdir + '/output'
-        lorax_images = lorax_output + '/images'
-        os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
 
-        treeinfo = lorax_output + '/.treeinfo'
-        treeinfo_tmp = treeinfo + '.tmp'
-        with open(treeinfo) as treein:
-            with open(treeinfo_tmp, 'w') as treeout:
-                for line in treein:
-                    if line.startswith('boot.iso'):
-                        treeout.write(line.replace('boot.iso', 'installer.iso'))
-                    else:
-                        treeout.write(line)
-        os.rename(treeinfo_tmp, treeinfo)
+        os_v = getattr(self, 'release')
+        os_pretty_name = os_pretty_name = '"{0}"'.format(getattr(self, 'os_pretty_name'))
 
-        for p in os.listdir(lorax_output):
-            print "Generated: " + p
-            shutil.move(os.path.join(lorax_output, p),
-                        os.path.join(outputdir, p))
+        docker_file, docker_os = self.returnDockerFile()
 
-## End Composer
+        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container', '-p', os_pretty_name, '-v', os_v, '-r', os_v, " ".join(lorax_repos), '/out']
+
+        # There is currently a bug for loop devices in containers,
+        # so we make at least one device to be sure.
+        # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
+
+        lorax_shell = "mknod -m660 /dev/loop0 b 7 0 \n"
+        lorax_shell = lorax_shell + " ".join(lorax_cmd)
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
+
+        tmp_docker_file = self.dumpTempMeta(os.path.join(self.workdir, "Dockerfile"), docker_file)
+
+        # Docker build
+        db_cmd = ['docker', 'build', '-t', docker_os, os.path.dirname(tmp_docker_file)]
+        run_sync(db_cmd)
+
+        # Docker run
+        dr_cidfile = os.path.join(self.workdir, "containerid")
+        dr_cmd = ['docker', 'run', '-it', '--net=host', '--privileged=true', '--cidfile="' + dr_cidfile + '"', docker_os]
+        run_sync(dr_cmd)
+        cid = open(dr_cidfile).read().strip()
+
+        # Copy the files images out
+        dcp_cmd = ['docker', 'cp', cid + ":/out/images", outputdir]
+        print "Copied images to " + outputdir
+        run_sync(dcp_cmd)
+
+        # Cop lorax logs to tempspace
+        dock_logs = ['lorax.log', 'program.log', 'yum.log']
+        for log in dock_logs:
+            dcp_cmd = ['docker', 'cp', cid + ":/" + log, os.path.join(self.workdir)]
+            print "Copying {0} to {1}".format(log, os.path.join(self.workdir))
+            run_sync(dcp_cmd)
+
+        # Copy the log to the tmp
+        # Marshalling issues, doesnt work yet
+        # dlog_cmd = ['docker', 'logs', cid]
+        # docker_log = json.JSONEncoder(subprocess.check_output(dlog_cmd))
+        # self.dumpTempMeta(os.path.join(self.workdir, "docker.log"), docker_log)
+
+    def create(self, outputdir, post=None):
+        imgfunc = ImageFunctions()
+        repos = self.getrepos(self.jsonfilename)
+        util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
+        lorax_repos = []
+        if self.lorax_additional_repos:
+            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
+                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
+            for repourl in self.lorax_additional_repos.split(','):
+                lorax_repos.extend(['-s', repourl.strip()])
+        else:
+            lorax_repos.append('-s {0}'.format(getattr(self, 'yum_baseurl')))
+
+        port_file_path = self.workdir + '/repo-port'
+        subprocess.check_call(['ostree',
+                               'trivial-httpd', '--autoexit', '--daemonize',
+                               '--port-file', port_file_path],
+                              cwd=self.ostree_repo)
+
+        httpd_port = open(port_file_path).read().strip()
+        print "trivial httpd port=%s" % (httpd_port, )
+        substitutions = {'OSTREE_PORT': httpd_port,
+                         'OSTREE_REF':  self.ref,
+                         'OSTREE_OSNAME':  self.os_name,
+                         'LORAX_REPOS': " ".join(lorax_repos),
+                         'OS_PRETTY': self.os_pretty_name,
+                         'OS_VER': self.release
+                         }
+        if '@OSTREE_HOSTIP@' in util_xml:
+            host_ip = getDefaultIP()
+            substitutions['OSTREE_HOSTIP'] = host_ip
+
+        print type(util_xml)
+        for subname, subval in substitutions.iteritems():
+            util_xml = util_xml.replace('@%s@' % (subname, ), subval)
+
+        # Dump util_xml to workdir for logging
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.xml"), util_xml)
+        global verbosemode
+        imgfacbuild = ImgFacBuilder(verbosemode=verbosemode)
+        imgfacbuild.verbosemode = verbosemode
+        imgfunc.checkoz()
+        util_ks = self.createUtilKS(self.tdl)
+
+        # Building of utility image
+        parameters = {"install_script": util_ks,
+                      "generate_icicle": False,
+                      "oz_overrides": json.dumps(imgfunc.ozoverrides)
+                      }
+        print "Starting build"
+        if self.util_uuid is None:
+            util_image = imgfacbuild.build(template=open(self.util_tdl).read(), parameters=parameters)
+            print "Created Utility Image: {0}".format(util_image.data)
+
+        else:
+            pim = PersistentImageManager.default_manager()
+            util_image = pim.image_with_id(self.util_uuid)
+            print "Re-using Utility Image: {0}".format(util_image.identifier)
+
+        # Now lorax
+        bd = BuildDispatcher()
+        lorax_parameters = {"results_location": "/lorout/output.tar",
+                            "utility_image": util_image.identifier,
+                            "utility_customizations": util_xml,
+                            "oz_overrides": json.dumps(imgfunc.ozoverrides)
+                            }
+        print "Building the lorax image"
+        loraxiso_builder = bd.builder_for_target_image("indirection", image_id=util_image.identifier, template=None, parameters=lorax_parameters)
+        loraxiso_image = loraxiso_builder.target_image
+        thread = loraxiso_builder.target_thread
+        thread.join()
+
+        # Extract the tarball of built images
+        print "Extracting images to {0}/images".format(outputdir)
+        t = tarfile.open(loraxiso_image.data)
+        t.extractall(path=outputdir)
+
+# End Composer
+
 
 def main(cmd):
     parser = argparse.ArgumentParser(description='Create an installer image',
                                      parents=[TaskBase.baseargs()])
     parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
+    parser.add_argument('--util_uuid', required=False, default=None, type=str, help='The UUID of an existing utility image')
+    parser.add_argument('--util_tdl', required=False, default=None, type=str, help='The TDL for the utility image')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--virt', action='store_true', help='Use libvirt')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
     args = parser.parse_args()
     composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()
-
-    composer.create(outputdir=getattr(composer, 'outputdir'), post=args.post)
+    global verbosemode
+    verbosemode = args.verbose
+    if args.virt:
+        composer.create(outputdir=getattr(composer, 'outputdir'), post=args.post)
+    else:
+        composer.createContainer(outputdir=getattr(composer, 'outputdir'), post=args.post)
 
     composer.cleanup()

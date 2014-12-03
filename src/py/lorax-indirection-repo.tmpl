@@ -1,0 +1,24 @@
+<template>
+<files>
+<file name="/root/lorax.tmpl">
+&lt;%page args='root'/&gt;
+mkdir install/ostree
+runcmd ostree --repo=${root}/install/ostree init --mode=archive-z2
+runcmd ostree remote add ostree-mirror --repo=${root}/install/ostree/ --set=gpg-verify=false http://@OSTREE_HOSTIP@:@OSTREE_PORT@
+runcmd ostree --repo=${root}/install/ostree/ pull --mirror ostree-mirror @OSTREE_REF@
+
+
+append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=@OSTREE_OSNAME@ --remote=@OSTREE_OSNAME@ --url=file:///install/ostree --ref=@OSTREE_REF@\n"
+append usr/share/anaconda/interactive-defaults.ks "services --disabled cloud-init,cloud-config,cloud-final,cloud-init-local\n"
+append usr/share/anaconda/interactive-defaults.ks "%post --erroronfail\nrm -f /etc/ostree/remotes.d/@OSTREE_OSNAME@.conf\n%end\n"
+</file>
+</files>
+<commands>
+   <command name='mount'>mount /dev/vdb1 /mnt</command>
+   <command name="installlorax">yum install -y lorax ostree</command>
+   <command name="makedancry">setenforce 0</command>
+   <command name="lorax">lorax --nomacboot --add-template=/root/lorax.tmpl -p "@OS_PRETTY@" -v @OS_VER@ -r @OS_VER@ @LORAX_REPOS@ /mnt/lorout</command>
+   <command name="makeiancry">tar cvf /mnt/lorout/output.tar -C /mnt/lorout/ images</command>
+</commands>
+</template>
+

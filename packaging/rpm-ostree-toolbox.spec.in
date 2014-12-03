@@ -34,12 +34,20 @@ Requires: kernel
 
 Requires: rpm-ostree
 Requires: lorax
+
+%if 0%{?fedora}
+Requires: docker-io
+%else
+Requires: docker
+%endif
+
 # Imagefactory
 Requires: imagefactory >= 1.1.6-1
 Requires: imagefactory-plugins-TinMan >= 1.1.6-1
 Requires: imagefactory-plugins-OVA >= 1.1.6-1
 Requires: imagefactory-plugins-vSphere >= 1.1.6-1
 Requires: imagefactory-plugins-RHEVM >= 1.1.6-1
+Requires: imagefactory-plugins-IndirectionCloud >= 1.1.6-1
 
 %if 0%{?rhel}
 %else
