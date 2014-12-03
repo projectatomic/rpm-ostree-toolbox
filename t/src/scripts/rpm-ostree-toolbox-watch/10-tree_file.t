@@ -4,7 +4,8 @@ use strict;
 use warnings;
 
 use Test::More;
-use File::Temp                  qw(tempfile);
+use File::Temp                  qw(tempdir);
+use Cwd                         qw(abs_path);
 
 ###############################################################################
 # BEGIN test setup.
@@ -45,7 +46,7 @@ while (my $line = <DATA>) {
     }
 }
 
-plan tests => 1 + @tests;
+plan tests => 1 + 2 * @tests;
 
 # END   test setup
 ###############################################################################
@@ -56,58 +57,73 @@ $script_path =~ s|/[^/]+$||;
 
 ok(require($script_path), "loaded $script_path") or exit;
 
+# Make a temporary working directory, and another subdirectory therein.
+(my $template = $0) =~ s|/|-|g;
+my $tempdir = tempdir( "$template.XXXXXXX", TMPDIR => 1, CLEANUP => 1 );
+mkdir "$tempdir/subdir", 0755
+    or die "Internal error: Could not mkdir $tempdir/subdir: $!\n";
+
+# Create a symlink from the base tempdir to a config file in the subdirectory.
+# We only need to do this once.
+symlink "$tempdir/subdir/config.ini" => "$tempdir/config.ini";
 
 # Run each test.
 for my $t (@tests) {
-    # config.ini file (tempfile)
-    (my $template = $0) =~ s|/|-|g;
-    my ($fh, $cfgpath) = tempfile( "$template.XXXXXXX", TMPDIR => 1 );
+    my $cfgpath = "$tempdir/subdir/config.ini";
+    unlink $cfgpath;
+    open my $fh, '>', $cfgpath
+        or die "Cannot create $cfgpath: $!";
     print { $fh } $t->{config} || '';
     close $fh
         or die "Error writing $cfgpath: $!";
     # In case we add a test for failing on missing config file
     unlink $cfgpath if ! $t->{config};
 
-    {
-        no warnings 'once';
-        $RpmOstreeToolbox::Watch::Config_File = $cfgpath;
-    }
-
-    # Invoke tree_file()
-    my $actual = eval { RpmOstreeToolbox::Watch::tree_file() };
-    my $died = $@;
-
-    # Expecting a fatal error?
-    if ($t->{'fatal'}) {
-        if ($died) {
-            chomp $died;
-            $died =~ s/^\S+:\s+//;
-            $died =~ s/^$cfgpath:\s+//;
-            is $died, $t->{'fatal'}, "$t->{name}: fails with expected error";
+    # Run each test twice: once with the original config_file, and once
+    # with the symlink in the parent directory. Results should always be
+    # exactly the same.
+    # (This only really tests the relative-path case where tree_file = ./foo )
+    # (But it costs us nothing to be paranoid and check them all)
+    for my $dir ("$tempdir/subdir", $tempdir) {
+        {
+            no warnings 'once';
+            $RpmOstreeToolbox::Watch::Config_File = "$dir/config.ini";
         }
+
+        # Invoke tree_file()
+        my $actual = eval { RpmOstreeToolbox::Watch::tree_file() };
+        my $died = $@;
+
+        # Expecting a fatal error?
+        if ($t->{'fatal'}) {
+            if ($died) {
+                chomp $died;
+                $died =~ s/^\S+:\s+//;
+                $died =~ s{^\S+/config\.ini:\s+}{};
+                is $died, $t->{'fatal'}, "$t->{name}: fails with expected error";
+            }
+            else {
+                # This should not happen!
+                fail $t->{name};
+                diag "expected a fatal error, but function invocation succeeded";
+            }
+        }
+
+        # Not expecting an error. Compare return value from function.
         else {
-            # This should not happen!
-            fail $t->{name};
-            diag "expected a fatal error, but function invocation succeeded";
+            if ($died) {
+                # Should not happen!
+                fail $t->{name};
+                diag "function invocation died unexpectedly: $died";
+            }
+            else {
+                (my $expect = $t->{expect}) =~ s!\$tempdir!abs_path($tempdir)!e;
+                is $actual, $expect, "$t->{name}: return value";
+            }
         }
+
+        # FIXME: check warnings
     }
-
-    # Not expecting an error. Compare return value from function.
-    else {
-        if ($died) {
-            # Should not happen!
-            fail $t->{name};
-            diag "function invocation died unexpectedly: $died";
-        }
-        else {
-            is $actual, $t->{expect}, "$t->{name}: return value";
-        }
-    }
-
-    # FIXME: check warnings
-
-    unlink $cfgpath;
-
 }
 
 #
@@ -128,7 +144,7 @@ __END__
 [DEFAULT]
 tree_file  = foo.json
 
-> foo.json
+> $tempdir/subdir/foo.json
 
 ------------------------------------------------------------------------------
 

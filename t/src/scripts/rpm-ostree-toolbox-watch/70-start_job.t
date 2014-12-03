@@ -92,7 +92,7 @@ my $expected_log = <<'EXPECTED_LOG_RE';
 #
 # \d+-\d+-\d+T\d+:\d+:\d+ BEGIN
 
-\$ \(cd atomic && git pull -r\)
+\$ \(cd \S+/atomic && git pull -r\)
 BEGIN \S+/bin/git
   pull
   -r
