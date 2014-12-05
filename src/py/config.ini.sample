@@ -1,26 +1,71 @@
 [DEFAULT]
 
+# Where output (treecomposes, isos, and qcows) will end up. Common
+# practice would be to set to something like: 
+# /srv/rpm-ostree/%(os_name)s/%(release)s
 outputdir   =
-# workdir     = os.getcwd()
-# srcdir      = os.path.join(os.path.dirname(sys.argv[0], '..')
+
+# Location for JSON files, Yum repo files, kickstart , and tdl files.  The
+# path needs to be *fully qualified*.
+config_dir  =
+
+# The name of the Docker image that should be used if the installer function is
+# called.
+docker_os_name = fedora:latest
+
+# Where tempfiles, logs, and such are stored during build.  If left blank,
+# this will default to /tmp
+# workdir     = 
+
+# Caching location for ostree trees.
 rpmostree_cache_dir = %(outputdir)s/cache
+
+# The location where of where the ostree repository
 ostree_repo = %(outputdir)s/repo
+
+# Name applied to the composed content
 os_name     = fedora-atomic
+
+# Same but pretty
 os_pretty_name = Fedora Atomic
+
+# The name to apply to a set of packages.
 tree_name   = docker-host
+
+# Reference to the tree file which controls much of the -toolbox
+# process.  It contains repos, package lists, and much more
 tree_file   = %(os_name)s-%(tree_name)s.json
+
+# Arch to be composed
 arch        = x86_64
+
+# The OS release to be used
 release     = rawhide
+
+# ostree uses refs to deal with content.  This defines the ref
+# name that will be used when composing.
 ref         = %(os_name)s/%(release)s/%(arch)s/%(tree_name)s
-# yum_baseurl = http://example.com/baserepo
-# Comma separated
+
+# yum_baseurl should point to the main location where yum can get its content. More
+# repos can be defined in .repo files in your configdir. An example could be:
+# http://download.fedoraproject.org/pub/fedora/linux/development/%(release)s/%(arch)s/os/
+yum_baseurl = 
+
+# Repositories above and beyond yum_baseurl that lorax can use to compose ISO content.
+# These need to be provides in a comma separated list.
 # lorax_additional_repos = http://example.com/baserepo, http://example.com/addrepo
+
 # local_overrides
+# Deprecated
 
 [rawhide]
 
 [fedora-21]
 release = 21
+
+
+# Everything below is applicable to configs being used in automated or structured builds
+# and is not needed for simple, one-off operations.
 
 # For authenticating to message bus. rpm-ostree-toolbox-kinit uses
 # these settings to write credentials into $KRB5CCNAME, which must
