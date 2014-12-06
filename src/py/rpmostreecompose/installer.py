@@ -167,6 +167,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
         lorax_shell = """#!/bin/sh\n
 mknod -m660 /dev/loop0 b 7 0
+echo Running: {0}
 exec {0}
 """.format(" ".join(map(GLib.shell_quote, lorax_cmd)))
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
