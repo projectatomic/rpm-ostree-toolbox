@@ -57,9 +57,8 @@ class InstallerTask(TaskBase):
         return ET.tostring(root)
 
     def dumpTempMeta(self, fullpathname, tmpstr):
-        tmp_file = open(fullpathname, 'w')
-        tmp_file.write(tmpstr)
-        tmp_file.close()
+        with open(fullpathname, 'w') as f:
+            f.write(tmpstr)
         print "Wrote {0}".format(fullpathname)
         return fullpathname
 
