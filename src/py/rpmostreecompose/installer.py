@@ -33,6 +33,7 @@ from imgfac.PersistentImageManager import PersistentImageManager
 from xml.etree import ElementTree as ET
 from .imagefactory import getDefaultIP
 
+from gi.repository import GLib
 
 class InstallerTask(TaskBase):
     container_id = ""
@@ -124,7 +125,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             for repourl in self.lorax_additional_repos.split(','):
                 lorax_repos.extend(['-s', repourl.strip()])
         else:
-            lorax_repos.append('-s {0}'.format(getattr(self, 'yum_baseurl')))
+            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
         port_file_path = self.workdir + '/repo-port'
         subprocess.check_call(['ostree',
                                'trivial-httpd', '--autoexit', '--daemonize',
@@ -154,20 +155,20 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         docker_file, docker_os = self.returnDockerFile()
 
-        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container', '-p', os_pretty_name, '-v', os_v, '-r', os_v, " ".join(lorax_repos), '/out']
+        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container', '-p', os_pretty_name, '-v', os_v, '-r', os_v]
         http_proxy = os.environ.get('http_proxy')
         if http_proxy:
             lorax_cmd.extend(['--proxy', http_proxy])
+        lorax_cmd.extend(lorax_repos)
+        lorax_cmd.append('/out')
 
         # There is currently a bug for loop devices in containers,
         # so we make at least one device to be sure.
         # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
-
         lorax_shell = """#!/bin/sh\n
 mknod -m660 /dev/loop0 b 7 0
-exec 
-        lorax_shell = "mknod -m660 /dev/loop0 b 7 0 \n"
-        lorax_shell = lorax_shell + " ".join(lorax_cmd)
+exec {0}
+""".format(" ".join(map(GLib.shell_quote, lorax_cmd)))
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
 
         tmp_docker_file = self.dumpTempMeta(os.path.join(self.workdir, "Dockerfile"), docker_file)
@@ -211,7 +212,7 @@ exec
             for repourl in self.lorax_additional_repos.split(','):
                 lorax_repos.extend(['-s', repourl.strip()])
         else:
-            lorax_repos.append('-s {0}'.format(getattr(self, 'yum_baseurl')))
+            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
 
         port_file_path = self.workdir + '/repo-port'
         subprocess.check_call(['ostree',
