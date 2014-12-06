@@ -154,11 +154,17 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         docker_file, docker_os = self.returnDockerFile()
 
         lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container', '-p', os_pretty_name, '-v', os_v, '-r', os_v, " ".join(lorax_repos), '/out']
+        http_proxy = os.environ.get('http_proxy')
+        if http_proxy:
+            lorax_cmd.extend(['--proxy', http_proxy])
 
         # There is currently a bug for loop devices in containers,
         # so we make at least one device to be sure.
         # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
 
+        lorax_shell = """#!/bin/sh\n
+mknod -m660 /dev/loop0 b 7 0
+exec 
         lorax_shell = "mknod -m660 /dev/loop0 b 7 0 \n"
         lorax_shell = lorax_shell + " ".join(lorax_cmd)
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
