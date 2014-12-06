@@ -100,9 +100,10 @@ ADD lorax.repo /etc/yum.repos.d/
 ADD lorax.tmpl /root/
 ADD lorax.sh /root/
 RUN chmod u+x /root/lorax.sh
-RUN yum -y update && yum -y clean all
-RUN yum -y swap fakesystemd systemd && yum -y clean all
-RUN yum -y install ostree lorax && yum -y clean all
+RUN yum -y update
+RUN yum -y swap fakesystemd systemd
+RUN yum -y install ostree lorax
+RUN yum -y clean all
 CMD ["/bin/sh", "/root/lorax.sh"]
         """
 
