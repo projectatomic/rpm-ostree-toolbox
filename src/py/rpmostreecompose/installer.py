@@ -93,13 +93,53 @@ EOF
 
         return util_ks
 
-    def returnDockerFile(self):
-        docker_subs = {'DOCKER_OS': getattr(self, 'docker_os_name')}
+    def _buildDockerImage(self, docker_image_name):
+        lorax_repos = []
+        if self.lorax_additional_repos:
+            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
+                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
+            for repourl in self.lorax_additional_repos.split(','):
+                lorax_repos.extend(['-s', repourl.strip()])
+        else:
+            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
+
+        os_v = getattr(self, 'release')
+        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container',
+                     '-p', self.os_pretty_name, '-v', os_v, '-r', os_v]
+        http_proxy = os.environ.get('http_proxy')
+        if http_proxy:
+            lorax_cmd.extend(['--proxy', http_proxy])
+        lorax_cmd.extend(lorax_repos)
+        for exclude in getattr(self, 'lorax_exclude_packages', '').split(','):
+            if exclude == '': continue
+            lorax_cmd.extend(['-e', exclude.strip()])
+        lorax_cmd.append('/out/lorax')
+
+        # There is currently a bug for loop devices in containers,
+        # so we make at least one device to be sure.
+        # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
+        lorax_shell = """#!/bin/sh\n
+mknod -m660 /dev/loop0 b 7 0
+mknod -m660 /dev/loop1 b 7 1
+mknod -m660 /dev/loop2 b 7 2
+mknod -m660 /dev/loop3 b 7 3
+mknod -m660 /dev/loop4 b 7 4
+mknod -m660 /dev/loop5 b 7 5
+mknod -m660 /dev/loop6 b 7 6
+echo Running: {0}
+exec {0}
+""".format(" ".join(map(GLib.shell_quote, lorax_cmd)))
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
+
+        docker_os = getattr(self, 'docker_os_name')
+
+        docker_subs = {'DOCKER_OS': docker_os}
         docker_file = """
 FROM @DOCKER_OS@
 ADD lorax.repo /etc/yum.repos.d/
 ADD lorax.tmpl /root/
 ADD lorax.sh /root/
+RUN mkdir /out
 RUN chmod u+x /root/lorax.sh
 RUN yum -y update
 RUN yum -y swap fakesystemd systemd
@@ -111,21 +151,17 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         for subname, subval in docker_subs.iteritems():
             docker_file = docker_file.replace('@%s@' % (subname, ), subval)
 
-        return docker_file, getattr(self, 'docker_os_name')
+        tmp_docker_file = self.dumpTempMeta(os.path.join(self.workdir, "Dockerfile"), docker_file)
+
+        # Docker build
+        db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
+        run_sync(db_cmd)
 
     def createContainer(self, outputdir, post=None):
         imgfunc = ImageFunctions()
         repos = self.getrepos(self.jsonfilename)
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
-        lorax_repos = []
-        if self.lorax_additional_repos:
-            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
-                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
-            for repourl in self.lorax_additional_repos.split(','):
-                lorax_repos.extend(['-s', repourl.strip()])
-        else:
-            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
         port_file_path = self.workdir + '/repo-port'
         subprocess.check_call(['ostree',
                                'trivial-httpd', '--autoexit', '--daemonize',
@@ -136,7 +172,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         substitutions = {'OSTREE_PORT': httpd_port,
                          'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
-                         'LORAX_REPOS': " ".join(lorax_repos),
                          'OS_PRETTY': self.os_pretty_name,
                          'OS_VER': self.release
                          }
@@ -150,61 +185,20 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
 
-        os_v = getattr(self, 'release')
         os_pretty_name = os_pretty_name = '"{0}"'.format(getattr(self, 'os_pretty_name'))
 
-        docker_file, docker_os = self.returnDockerFile()
-
-        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container', '-p', os_pretty_name, '-v', os_v, '-r', os_v]
-        http_proxy = os.environ.get('http_proxy')
-        if http_proxy:
-            lorax_cmd.extend(['--proxy', http_proxy])
-        lorax_cmd.extend(lorax_repos)
-        for exclude in getattr(self, 'lorax_exclude_packages', '').split(','):
-            if exclude == '': continue
-            lorax_cmd.extend(['-e', exclude.strip()])
-        lorax_cmd.append('/out')
-
-        # There is currently a bug for loop devices in containers,
-        # so we make at least one device to be sure.
-        # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
-        lorax_shell = """#!/bin/sh\n
-mknod -m660 /dev/loop0 b 7 0
-echo Running: {0}
-exec {0}
-""".format(" ".join(map(GLib.shell_quote, lorax_cmd)))
-        self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
-
-        tmp_docker_file = self.dumpTempMeta(os.path.join(self.workdir, "Dockerfile"), docker_file)
-
-        # Docker build
-        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(docker_os)
-        db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
-        run_sync(db_cmd)
+        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(getattr(self, 'docker_os_name'))
+        if not ('docker-lorax' in self.args.skip_subtask):
+            self._buildDockerImage(docker_image_name)
+        else:
+            print "Skipping subtask docker-lorax"
 
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
-        dr_cmd = ['docker', 'run', '-it', '--net=host', '--privileged=true', '--cidfile="' + dr_cidfile + '"', docker_image_name]
+        dr_cmd = ['docker', 'run', '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
+                  '-v', '{0}:{1}'.format(os.path.abspath(outputdir), '/out'),
+                  docker_image_name]
         run_sync(dr_cmd)
-        cid = open(dr_cidfile).read().strip()
-
-        # Copy the files images out
-        dcp_cmd = ['docker', 'cp', cid + ":/out/images", outputdir]
-        print "Copied images to " + outputdir
-        run_sync(dcp_cmd)
-
-        # Cop lorax logs to tempspace
-        dock_logs = ['lorax.log', 'program.log', 'yum.log']
-        for log in dock_logs:
-            dcp_cmd = ['docker', 'cp', cid + ":/" + log, os.path.join(self.workdir)]
-            print "Copying {0} to {1}".format(log, os.path.join(self.workdir))
-            run_sync(dcp_cmd)
-
-        # Copy the log to the tmp
-        # Marshalling issues, doesnt work yet
-        # dlog_cmd = ['docker', 'logs', cid]
-        # docker_log = json.JSONEncoder(subprocess.check_output(dlog_cmd))
-        # self.dumpTempMeta(os.path.join(self.workdir, "docker.log"), docker_log)
 
     def create(self, outputdir, post=None):
         imgfunc = ImageFunctions()
@@ -294,9 +288,10 @@ def main(cmd):
     parser.add_argument('--util_uuid', required=False, default=None, type=str, help='The UUID of an existing utility image')
     parser.add_argument('--util_tdl', required=False, default=None, type=str, help='The TDL for the utility image')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
+    parser.add_argument('--skip-subtask', action='append', help='Skip a subtask (currently: docker-lorax)', default=[])
     parser.add_argument('--virt', action='store_true', help='Use libvirt')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
-    parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
+    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     args = parser.parse_args()
     composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()

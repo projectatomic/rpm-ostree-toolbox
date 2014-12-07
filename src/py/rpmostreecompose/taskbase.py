@@ -41,6 +41,7 @@ class TaskBase(object):
 
     def __init__(self, args, cmd, profile=None):
         self._repo = None
+        self.args = args
         configfile = args.config
         assert profile is not None
         defaults = { 'workdir': None,
