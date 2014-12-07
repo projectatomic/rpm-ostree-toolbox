@@ -175,12 +175,13 @@ exec {0}
         tmp_docker_file = self.dumpTempMeta(os.path.join(self.workdir, "Dockerfile"), docker_file)
 
         # Docker build
-        db_cmd = ['docker', 'build', '-t', docker_os, os.path.dirname(tmp_docker_file)]
+        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(docker_os)
+        db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
         run_sync(db_cmd)
 
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
-        dr_cmd = ['docker', 'run', '-it', '--net=host', '--privileged=true', '--cidfile="' + dr_cidfile + '"', docker_os]
+        dr_cmd = ['docker', 'run', '-it', '--net=host', '--privileged=true', '--cidfile="' + dr_cidfile + '"', docker_image_name]
         run_sync(dr_cmd)
         cid = open(dr_cidfile).read().strip()
 
