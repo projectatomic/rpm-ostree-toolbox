@@ -32,7 +32,9 @@ class TaskBase(object):
     ATTRS = [ 'outputdir', 'workdir', 'rpmostree_cache_dir', 'pkgdatadir', 'ostree_repo',
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
-              'yum_baseurl', 'lorax_additional_repos', 'local_overrides', 'http_proxy',
+              'yum_baseurl', 'lorax_additional_repos',
+              'lorax_exclude_packages',
+              'local_overrides', 'http_proxy',
               'selinux', 'configdir', 'docker_os_name'
             ]
 
