@@ -2,27 +2,31 @@ rpm-ostree-toolbox
 ==================
 
 This is a higher level app on top of the core `rpm-ostree` tool.  It
-contains a variety of tools and scripts for making disk images, the
-"repoweb" generator, and such.
+contains a variety of tools and scripts for making disk images, installer images, and ostree trees.
 
-The "postprocess" command is still useful though as a way to avoid
-creating multiple disk images for different variants.
+The rpm-ostree-toolbox should be called with one of three subcommands:
 
-The "trivial-autobuilder" code is also being reworked into new scripts
-in fedora-atomic.
+* treecompose
+* imagefactory
+* installer
 
-Running an unattended compose
------------------------------
 
-Most likely, you want to start using rpm-ostree by running a "compose"
-server.  We use the term "compose" instead of "build" as there's no
-actual source code being changed here, just a mechanical
-transformation of RPM -> OSTree -> disk images.
+Getting started
+---------------
+Depending on the subcommand being called with rpm-ostree-toolbox, a number of different input files are required.  The main configuration file is generally called config.ini.  A sample is provided with rpm-ostree-toolbox.  Be sure to review and edit the config.ini where applicable.  It is heavily commented and self-explanatory.
 
-First, you need to run through the setup instructions of the current
-rpm-ostree README.md.
+There is a git repository to help you get started with rpm-ostree-toolbox and Fedora located at https://git.fedorahosted.org/cgit/fedora-atomic.git .
 
-Once you've done this, see `doc/autobuilder.json` for a sample JSON
-configuration file for the autobuilder.
 
-	$ rpm-ostree-toolbox trivial-autocompose /path/to/autobuilder.json
+rpm-ostree-toolbox treecompose
+------------------------------
+This allows you to create a tree of ostree content.  It takes various inputs from a JSON file to perform most of its actions.  When complete, you will have an ostree with content suitable for creating 
+
+rpm-ostree-toolbox imagefactory
+-------------------------------
+With imagefactory, you can create various virtualized images with libvirt related tooling.  Currently it is capable of making qcow2, raw, vsphere, and rhevm images.  This can be altered with the -i argument.  
+
+rpm-ostree-toolbox installer
+----------------------------
+This command creates ISO and PXE images that can be used as install media.  This can either be done with a container-based approach or using libvirt.
+
