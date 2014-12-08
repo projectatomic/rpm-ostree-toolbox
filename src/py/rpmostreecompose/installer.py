@@ -110,9 +110,11 @@ EOF
         if http_proxy:
             lorax_cmd.extend(['--proxy', http_proxy])
         lorax_cmd.extend(lorax_repos)
-        for exclude in getattr(self, 'lorax_exclude_packages', '').split(','):
-            if exclude == '': continue
-            lorax_cmd.extend(['-e', exclude.strip()])
+        excludes = getattr(self, 'lorax_exclude_packages')
+        if excludes is not None:
+            for exclude in excludes.split(','):
+                if exclude == '': continue
+                lorax_cmd.extend(['-e', exclude.strip()])
         lorax_cmd.append('/out/lorax')
 
         # There is currently a bug for loop devices in containers,
