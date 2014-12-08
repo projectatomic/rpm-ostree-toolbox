@@ -19,6 +19,9 @@
 
 import sys
 import subprocess
+import os
+import signal
+import ctypes
 
 def fail_msg(msg):
     if False:
@@ -30,3 +33,47 @@ def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
     print "Running: %s" % (subprocess.list2cmdline(args), )
     subprocess.check_call(args, **kwargs)
+
+
+class TrivialHTTP():
+    """ This class is used to control ostree's trivial-httpd which is used
+    by the installer and imagefactory rpm-ostree-toolbox subcommands to get
+    content from the from the host to the builds
+    """
+
+    def __init__(self):
+        self.f = None
+        self.libc = ctypes.CDLL('libc.so.6')
+        self.PR_SET_PDEATHSIG = 1
+        self.SIGINT = signal.SIGINT
+        self.SIGTERM = signal.SIGTERM
+
+    def set_death_signal(self, signal):
+        self.libc.prctl(self.PR_SET_PDEATHSIG, signal)
+    
+    def set_death_signal_int(self):
+        self.set_death_signal(self.SIGINT)
+
+    # trivial-httpd does not close its output pipe so we use
+    # monitor to deal with it.  If ostree is fixed, this can
+    # likely be removed
+
+    def monitor(self):
+        lines = iter(self.f.stdout.readline, "")
+
+        for line in lines:
+            if int(line) > 0:
+                self.http_port = int(line)
+                break
+
+    def start(self, repopath):
+        self.f = subprocess.Popen(['ostree', 'trivial-httpd', '--autoexit', '-p', "-"],
+                                  cwd=repopath, stdout=subprocess.PIPE, preexec_fn=self.set_death_signal_int)
+        self.http_pid = self.f.pid
+        while True:
+            if self.f is not None:
+                break
+        self.monitor()
+
+    def stop(self):
+        os.kill(self.http_pid, signal.SIGQUIT)
