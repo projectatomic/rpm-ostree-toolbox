@@ -82,6 +82,11 @@ class TaskBase(object):
         else:
             self.tree_file = os.path.join(self.configdir, self.tree_file)
 
+        # Look for virtnetwork
+
+        if 'virtnetwork' in args:
+            self.virtnetwork = args.virtnetwork
+
         # Set outputdir if overriden by command line
         if 'outputdir' in args and args.outputdir is not None:
             setattr(self, 'outputdir', args.outputdir)

@@ -195,7 +195,7 @@ class ImageFactoryTask(TaskBase):
                           'OSTREE_REF':  self.ref,
                           'OSTREE_OSNAME':  self.os_name}
         if '@OSTREE_HOST_IP@' in ksdata:
-            host_ip = getDefaultIP()
+            host_ip = getDefaultIP(hostnet=self.virtnetwork)
             substitutions['OSTREE_HOST_IP'] = host_ip
 
         for subname, subval in substitutions.iteritems():
@@ -261,22 +261,39 @@ class ImageFactoryTask(TaskBase):
 
 ## End Composer
 
-def getDefaultIP():
+def getDefaultIP(hostnet=None):
     """
     This method determines returns the IP of the atomic host, which
-    is used by the kickstart file to find the atomic repository. If it
-    cannot determine it via the default KVM network, it will fatally
-    die and suggest the user define it in the KS file.
+    is used by the kickstart file to find the atomic repository. It can
+    accept a virt network name to help determine the IP.  Else, it will
+    count the number of networks and if only one use that.  Else it
+    will look for one named default.
     """
     conn=libvirt.open()
-    try:
-        interface = conn.networkLookupByName("default")
-    except:
-        print "Unable to automatically determine your default KVM network. You can define the IP address of your atomic host repository in the kickstart file.  Simply replace @OSTREE_HOST_IP@ with the IP you want to use."
+    print hostnet
+
+    numnets = int(conn.numOfNetworks()
+
+    if numnets < 1:
+        fail_msg("No libvirt networks appear to be defined.  Ensure you have a network defined and re-run.")
         exit(1)
+
+    netlist = conn.listNetworks()
+
+    if hostnet is not None:
+        netname = hostnet
+    elif conn.numOfNetworks() == 1:
+        netname = netlist[0]
+    elif "default" in netlist:
+        netname = "default"
+    else:
+        fail_msg("Unable to determine your libvirt network automatically.  Please re-run with --virtnetwork switch and the name of the network you want to use (from virsh net-list)")
+
+    interface = conn.networkLookupByName(netname)
     root = ET.fromstring(interface.XMLDesc())
     ip = root.find("ip").get('address')
     return ip
+
 
 
 class ImageFunctions(object):
@@ -336,6 +353,7 @@ def main(cmd):
     parser.add_argument('-i', '--images', help='Output image formats in list format', action='append')
     parser.add_argument('--name', type=str, required=False, help='Image name')
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')
+    parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
     parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
     parser.add_argument('-k', '--kickstart', type=str, required=False, help='Path to kickstart') 
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')

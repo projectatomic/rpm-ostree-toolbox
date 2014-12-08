@@ -291,6 +291,7 @@ def main(cmd):
     parser.add_argument('--util_tdl', required=False, default=None, type=str, help='The TDL for the utility image')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     parser.add_argument('--skip-subtask', action='append', help='Skip a subtask (currently: docker-lorax)', default=[])
+    parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
     parser.add_argument('--virt', action='store_true', help='Use libvirt')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
