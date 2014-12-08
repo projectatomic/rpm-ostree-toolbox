@@ -40,7 +40,7 @@ import logging
 
 from .taskbase import TaskBase
 
-from .utils import run_sync, fail_msg
+from .utils import run_sync, fail_msg, TrivialHTTP
 
 
 class ImgBuilder(object):
@@ -170,13 +170,13 @@ class ImageFactoryTask(TaskBase):
         print commitdate
 
         port_file_path = self.workdir + '/repo-port'
-        subprocess.check_call(['ostree',
-                               'trivial-httpd', '--autoexit', '--daemonize',
-                               '--port-file', port_file_path],
-                              cwd=self.ostree_repo)
 
-        httpd_port = open(port_file_path).read().strip()
-        print "trivial httpd port=%s" % (httpd_port, )
+        # Start trivial-httpd
+
+        trivhttp = TrivialHTTP()
+        trivhttp.start(self.ostree_repo)
+        httpd_port = str(trivhttp.http_port)
+        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
 
         ks_basename = os.path.basename(ksfile)
         flattened_ks = os.path.join(self.workdir, ks_basename)
@@ -199,6 +199,7 @@ class ImageFactoryTask(TaskBase):
             substitutions['OSTREE_HOST_IP'] = host_ip
 
         for subname, subval in substitutions.iteritems():
+            print subname, subval
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
         imgfunc.checkoz()
@@ -249,6 +250,8 @@ class ImageFactoryTask(TaskBase):
                 outfile = os.path.join(imageoutputdir, '%s-%s.ova' % (self._name, imagetype))
                 shutil.copyfile(infile, outfile)
                 print "Created: {0}".format(outfile)
+
+        trivhttp.stop()
 
     @property
     def builder(self):

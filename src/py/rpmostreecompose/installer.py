@@ -25,7 +25,7 @@ import oz.GuestFactory
 import tarfile
 
 from .taskbase import TaskBase
-from .utils import fail_msg, run_sync
+from .utils import fail_msg, run_sync, TrivialHTTP
 from .imagefactory import ImageFunctions
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
@@ -165,12 +165,14 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
         port_file_path = self.workdir + '/repo-port'
-        subprocess.check_call(['ostree',
-                               'trivial-httpd', '--autoexit', '--daemonize',
-                               '--port-file', port_file_path],
-                              cwd=self.ostree_repo)
 
-        httpd_port = open(port_file_path).read().strip()
+        # Start trivial-httpd
+
+        trivhttp = TrivialHTTP()
+        trivhttp.start(self.ostree_repo)
+        httpd_port = str(trivhttp.http_port)
+        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+
         substitutions = {'OSTREE_PORT': httpd_port,
                          'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
@@ -201,6 +203,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                   '-v', '{0}:{1}'.format(os.path.abspath(outputdir), '/out'),
                   docker_image_name]
         run_sync(dr_cmd)
+        trivhttp.stop()
 
     def create(self, outputdir, post=None):
         imgfunc = ImageFunctions()
@@ -216,13 +219,13 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
 
         port_file_path = self.workdir + '/repo-port'
-        subprocess.check_call(['ostree',
-                               'trivial-httpd', '--autoexit', '--daemonize',
-                               '--port-file', port_file_path],
-                              cwd=self.ostree_repo)
 
-        httpd_port = open(port_file_path).read().strip()
-        print "trivial httpd port=%s" % (httpd_port, )
+        # Start trivial-httpd
+
+        trivhttp = TrivialHTTP()
+        trivhttp.start(self.ostree_repo)
+        httpd_port = str(trivhttp.http_port)
+        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
         substitutions = {'OSTREE_PORT': httpd_port,
                          'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
@@ -278,6 +281,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         print "Extracting images to {0}/images".format(outputdir)
         t = tarfile.open(loraxiso_image.data)
         t.extractall(path=outputdir)
+        trivhttp.stop()
 
 # End Composer
 
