@@ -246,7 +246,7 @@ END_LOG_HEADER
     }
 
     print  "#\n";
-    printf "# %s BEGIN\n\n", localtime->datetime;
+    printf "# %sZ BEGIN\n\n", gmtime->datetime;
 
     # First: git pull. It's OK if this fails.
     # This should really be "git -C <dirname>" but git-1.8.3 (RHEL7) doesn't
@@ -278,9 +278,9 @@ END_LOG_HEADER
         }
     }
 
-    printf <<"END_LOG_TAIL", localtime->datetime, $msg;
+    printf <<"END_LOG_TAIL", gmtime->datetime, $msg;
 
-# %s FINISHED: %s
+# %sZ FINISHED: %s
 ###############################################################################
 END_LOG_TAIL
 
@@ -347,7 +347,7 @@ sub desired_systemd_units {
 #
 sub log_file {
     my $cwd = cwd();
-    my $t   = localtime;                # FIXME: gmtime instead?
+    my $t   = gmtime;
 
     # eg /srv/mybranch/tasks/treecompose/2014/11/03/05h2501
     my $dir = sprintf("%s/%s/%d/%02d/%02d/%02dh%02d%02d",

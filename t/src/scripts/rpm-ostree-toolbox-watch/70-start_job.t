@@ -90,7 +90,7 @@ my $expected_log = <<'EXPECTED_LOG_RE';
 #    _PID          = 123
 #    _SYSTEMD_UNIT = rpm-ostree-toolbox-git-monitor.service
 #
-# \d+-\d+-\d+T\d+:\d+:\d+ BEGIN
+# \d+-\d+-\d+T\d+:\d+:\d+Z BEGIN
 
 \$ \(cd \S+/atomic && git pull -r\)
 BEGIN \S+/bin/git
@@ -105,7 +105,7 @@ BEGIN \S+/bin/rpm-ostree-toolbox
   ./config.ini
 END   \S+/bin/rpm-ostree-toolbox
 
-# \d+-\d+-\d+T\d+:\d+:\d+ FINISHED: success
+# \d+-\d+-\d+T\d+:\d+:\d+Z FINISHED: success
 ####+
 EXPECTED_LOG_RE
 
