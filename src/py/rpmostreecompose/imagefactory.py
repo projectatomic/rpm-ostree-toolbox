@@ -275,7 +275,7 @@ def getDefaultIP(hostnet=None):
     conn=libvirt.open()
     print hostnet
 
-    numnets = int(conn.numOfNetworks()
+    numnets = int(conn.numOfNetworks())
 
     if numnets < 1:
         fail_msg("No libvirt networks appear to be defined.  Ensure you have a network defined and re-run.")
