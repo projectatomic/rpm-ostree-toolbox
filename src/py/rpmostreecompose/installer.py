@@ -180,7 +180,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          'OS_VER': self.release
                          }
         if '@OSTREE_HOSTIP@' in lorax_tmpl:
-            host_ip = "localhost"
+            host_ip = "127.0.0.1"
             substitutions['OSTREE_HOSTIP'] = host_ip
 
         for subname, subval in substitutions.iteritems():
