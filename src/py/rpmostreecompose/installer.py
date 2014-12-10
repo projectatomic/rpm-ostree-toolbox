@@ -184,7 +184,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             substitutions['OSTREE_HOSTIP'] = host_ip
 
         for subname, subval in substitutions.iteritems():
-            print subname
+            print '{0} => {1}'.format(subname, subval)
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
