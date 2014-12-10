@@ -197,13 +197,31 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         else:
             print "Skipping subtask docker-lorax"
 
+        outputdir = os.path.abspath(outputdir)
+
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
         dr_cmd = ['docker', 'run', '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
-                  '-v', '{0}:{1}'.format(os.path.abspath(outputdir), '/out'),
+                  '-v', '{0}:{1}'.format(outputdir, '/out'),
                   docker_image_name]
         run_sync(dr_cmd)
         trivhttp.stop()
+
+        # We injected data into boot.iso, so it's now installer.iso
+        lorax_output = outputdir + '/lorax'
+        lorax_images = lorax_output + '/images'
+        os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
+
+        treeinfo = lorax_output + '/.treeinfo'
+        treeinfo_tmp = treeinfo + '.tmp'
+        with open(treeinfo) as treein:
+            with open(treeinfo_tmp, 'w') as treeout:
+                for line in treein:
+                    if line.startswith('boot.iso'):
+                        treeout.write(line.replace('boot.iso', 'installer.iso'))
+                    else:
+                        treeout.write(line)
+        os.rename(treeinfo_tmp, treeinfo)
 
     def create(self, outputdir, post=None):
         imgfunc = ImageFunctions()
