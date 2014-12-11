@@ -25,7 +25,7 @@ import shutil
 import subprocess
 import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
-from iniparse import INIConfig
+import ConfigParser
 import libvirt
 import xml.etree.ElementTree as ET
 
@@ -203,7 +203,6 @@ class ImageFactoryTask(TaskBase):
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
         imgfunc.checkoz()
-
         parameters =  { "install_script": ksdata,
                         "generate_icicle": False,
                         "oz_overrides": json.dumps(imgfunc.ozoverrides)
@@ -302,7 +301,6 @@ def getDefaultIP(hostnet=None):
 class ImageFunctions(object):
     def __init__(self):
         self.ozoverrides = {}
-        self.cfg = INIConfig(open('/etc/oz/oz.cfg'))
 
     def addozoverride(self, cfgsec, key, value):
         """
@@ -320,21 +318,25 @@ class ImageFunctions(object):
         user to potential errors caused by the cfg itself. It also
         returns the default image type.
         """
-        cfg = INIConfig(open('/etc/oz/oz.cfg'))
+        cfg = ConfigParser.SafeConfigParser()
+        cfg.read('/etc/oz/oz.cfg')
 
         # Set default image to always be KVM
         self.addozoverride('libvirt', 'image_type', 'qcow2')
 
-        # iniparse returns an object if it cannot find the config option
-        # we check if the the return is a str and assume if not, it does
-        # not exist
+        if cfg.has_option("libvirt","memory"):
+            if int(cfg.get("libvirt","memory")) < 2048:
+                print "Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048"
+                self.addozoverride('libvirt', 'memory', 2048)
 
-        if int(cfg.libvirt.memory) < 2048:
-            print "Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048"
+        else:
+            # We need at least 2GB of memory for imagefactory
             self.addozoverride('libvirt', 'memory', 2048)
 
         # Two cpus is prefered for producer/consumer ops
         self.addozoverride('libvirt', 'cpus', '2')
+
+        print "Oz overrides: {0}".format(self.ozoverrides)
 
 def parseimagetypes(imagetypes):
     default_image_types = ["kvm", "raw", "vsphere", "rhevm"]
