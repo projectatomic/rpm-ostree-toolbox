@@ -121,13 +121,11 @@ EOF
         # so we make at least one device to be sure.
         # https://groups.google.com/forum/#!msg/docker-user/JmHko2nstWQ/5iuzVf67vfEJ
         lorax_shell = """#!/bin/sh\n
-mknod -m660 /dev/loop0 b 7 0
-mknod -m660 /dev/loop1 b 7 1
-mknod -m660 /dev/loop2 b 7 2
-mknod -m660 /dev/loop3 b 7 3
-mknod -m660 /dev/loop4 b 7 4
-mknod -m660 /dev/loop5 b 7 5
-mknod -m660 /dev/loop6 b 7 6
+for x in $(seq 0 6); do
+  path=/dev/loop${{x}}
+  if ! test -b ${{path}}; then mknod -m660 ${{path}} b 7 ${{x}}; fi
+done
+sed -e "s,@OSTREE_PORT@,${{OSTREE_PORT}}," < /root/lorax.tmpl.in > /root/lorax.tmpl
 echo Running: {0}
 exec {0}
 """.format(" ".join(map(GLib.shell_quote, lorax_cmd)))
@@ -139,7 +137,7 @@ exec {0}
         docker_file = """
 FROM @DOCKER_OS@
 ADD lorax.repo /etc/yum.repos.d/
-ADD lorax.tmpl /root/
+ADD lorax.tmpl /root/lorax.tmpl.in
 ADD lorax.sh /root/
 RUN mkdir /out
 RUN chmod u+x /root/lorax.sh
@@ -173,15 +171,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         httpd_port = str(trivhttp.http_port)
         print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
 
-        substitutions = {'OSTREE_PORT': httpd_port,
-                         'OSTREE_REF':  self.ref,
+        substitutions = {'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
                          'OS_PRETTY': self.os_pretty_name,
                          'OS_VER': self.release
                          }
-        if '@OSTREE_HOSTIP@' in lorax_tmpl:
-            host_ip = "127.0.0.1"
-            substitutions['OSTREE_HOSTIP'] = host_ip
 
         for subname, subval in substitutions.iteritems():
             print '{0} => {1}'.format(subname, subval)
@@ -197,11 +191,20 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         else:
             print "Skipping subtask docker-lorax"
 
+        # Start trivial-httpd
+
+        trivhttp = TrivialHTTP()
+        trivhttp.start(self.ostree_repo)
+        httpd_port = str(trivhttp.http_port)
+        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+
         outputdir = os.path.abspath(outputdir)
 
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
-        dr_cmd = ['docker', 'run', '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
+
+        dr_cmd = ['docker', 'run', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
+                  '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
                   '-v', '{0}:{1}'.format(outputdir, '/out'),
                   docker_image_name]
         run_sync(dr_cmd)
