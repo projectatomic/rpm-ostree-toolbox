@@ -169,18 +169,23 @@ class TaskBase(object):
         if len(missing_confs) > 0:
             fail_msg("The following option(s) {0} are not defined in your configuration file.  Please define them and re-run".format(missing_confs))
 
-    def flattenjsoninclude(self, params):
+    def flattenjsoninclude(self, params, includefile):
         """ This function merges a dict that represents a tree file
-        with a json includefile. It's not rescursive now but could be
-        made to be.
+        with a json includefile. It can now handle recursive json
+        files
         """
-        includefile = (os.path.dirname(self.tree_file)) + "/" + params['include']
-        params.pop('include', None)
+
+        if includefile is not None:
+            includefile = (os.path.dirname(self.tree_file)) + "/" + includefile
         if not os.path.isfile(includefile):
             fail_msg(("Your tree file includes another file %s that could not be found") % includefile)
         else:
             jsoninclude = open(includefile)
             incparams = json.load(jsoninclude)
+            if 'include' in incparams:
+                # Found a recursive include
+                next_includefile = incparams.pop('include', None)
+                incparams = self.flattenjsoninclude(incparams, next_includefile)
             for key in incparams:
                 # If its a str,bool,or list and doesn't exist, add it
                 if (key not in params) and (key != "comment"):
@@ -209,8 +214,8 @@ class TaskBase(object):
         if 'osname' not in 'params':
             params['osname'] = self.os_name
         if 'include' in params:
-            params = self.flattenjsoninclude(params)
-
+            includefile = params.pop('include')
+            params = self.flattenjsoninclude(params, includefile)
         # Need to flatten repos
         self._copyexternals(params)
         self.jsonfilename = os.path.join(self.workdir, os.path.basename(self.tree_file))
