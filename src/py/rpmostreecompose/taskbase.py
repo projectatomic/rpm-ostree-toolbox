@@ -51,24 +51,21 @@ class TaskBase(object):
                      'selinux': True
                    }
 
-        if not os.path.exists(configfile):
+        if not os.path.isfile(configfile):
             fail_msg("No config file: " + configfile)
         settings = iniparse.ConfigParser()
+        try: 
+            settings.read(configfile)
+        except ConfigParser.ParsingError as e:
+            fail_msg("Error parsing your config file {0}: {1}".format(configfile, e.message))            
+
+        outputdir = self.getConfigValue("outputdir", settings, profile, defValue=os.getcwd())
         
-        settings.read(configfile)
         outputdir = settings.get('DEFAULT', 'outputdir', "")
-        if outputdir == "":
-            settings.set('DEFAULT', 'outputdir', os.getcwd())
-        self.checkini(settings, profile, configfile)
+        settings.set('DEFAULT', 'outputdir', outputdir)
+
         for attr in self.ATTRS:
-            try:
-                val = settings.get(profile, attr)
-            except (iniparse.NoOptionError, iniparse.NoSectionError), e:
-                try:
-                    val = settings.get('DEFAULT', attr)
-                except iniparse.NoOptionError, e:
-                    val = defaults.get(attr)
-                    #print "Unable to find {0}, falling back to the value {1}".format(attr, val)
+            val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
             print (attr, val)
             setattr(self, attr, val)
 
@@ -134,6 +131,11 @@ class TaskBase(object):
             else:
                 self.util_tdl = args.util_tdl
 
+            # Check if the lorax outputdir already exists
+            lorax_outputdir = os.path.join(outputdir, "lorax")
+            if os.path.exists(lorax_outputdir):
+                fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
+
         if self.http_proxy:
             os.environ['http_proxy'] = self.http_proxy
 
@@ -155,7 +157,7 @@ class TaskBase(object):
    
     def checkini(self, settings, profile, configfile):
         # If a release is passed via -r and does not exist, error out
-        if not settings.has_section(profile):
+        if profile is not "DEFAULT" and not settings.has_section(profile):
             sections = settings.sections()
             fail_msg("Section {0} is not defined in your config file ({1}). Valid sections/profiles are {2}".format(
                 profile, configfile, sections))
@@ -267,3 +269,27 @@ class TaskBase(object):
     def cleanup(self):
         if self.workdir_is_tmp:
             shutil.rmtree(self.workdir)
+
+    def hasValue(self, configkey, settings, profile):
+        """
+        This is a helper function for getConfigValue() and basically
+        checks the profile of a config.ini and looks to see if the
+        key exists.  If so, it returns the value, else None
+        """
+        configvalue = None
+        if configkey in dict(settings.items(profile)):
+            configvalue = settings.get(profile, configkey)
+        return None if configvalue is None else configvalue
+
+    def getConfigValue(self, configkey, settings, profile, defValue=None):
+        """
+        This function helps to safely extract config.ini values given a key,
+        a ConfigParser object, a profile, and an optional default value. The
+        function will search the profile first for a key/value, then the 
+        default profile.  It will return the value or None if a default 
+        fallback value is not provided
+        """
+        configvalue = self.hasValue(configkey, settings, profile)
+        configvalue = self.hasValue(configkey, settings, "DEFAULT") if configvalue is None else configvalue
+        return defValue if configvalue is None else configvalue
+
