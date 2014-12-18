@@ -47,6 +47,9 @@ class InstallerTask(TaskBase):
             repos = repos + open(repofile).read()
             repos = repos + "enabled=1"
             repos = repos + "\n"
+        if self.lorax_additional_repos:
+            for i,repourl in enumerate(self.lorax_additional_repos.split(',')):
+                repos += "[lorax-repo-{0}]\nbaseurl={1}\nenabled=1\ngpgcheck=0\n".format(i, repourl)
         return repos
 
     def template_xml(self, repos, tmplfilename):
@@ -160,6 +163,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
     def createContainer(self, outputdir, post=None):
         imgfunc = ImageFunctions()
         repos = self.getrepos(self.jsonfilename)
+        print "Using lorax.repo:\n" + repos
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
         port_file_path = self.workdir + '/repo-port'
