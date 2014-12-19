@@ -60,7 +60,10 @@ class TaskBase(object):
             fail_msg("Error parsing your config file {0}: {1}".format(configfile, e.message))            
 
         self.outputdir = os.getcwd()
-        self.ostree_repo = self.outputdir + '/repo'
+        if args.ostreerepo is not None:
+            self.ostree_repo = args.ostreerepo
+        else:
+            self.ostree_repo = self.outputdir + '/repo'
 
         if os.path.isdir(self.outputdir + "/.git"):
             fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
@@ -145,6 +148,7 @@ class TaskBase(object):
         """ Retrieve the default arguments applicable to all tasks. """
         parser = argparse.ArgumentParser(description='Toolbox task arguments', add_help=False)
         parser.add_argument('-c', '--config', type=str, required=True, help='Path to config file')
+        parser.add_argument('--ostreerepo', type=str, required=False, help='Path to OSTree repository (default: ${pwd}/repo)')
         return parser
    
     def checkini(self, settings, profile, configfile):
