@@ -329,9 +329,18 @@ def main(cmd):
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
+
+    outputdir = getattr(composer, 'outputdir')
+    # Check if the lorax outputdir already exists
+    lorax_outputdir = os.path.join(outputdir, "lorax")
+    if os.path.exists(lorax_outputdir):
+        fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
+    elif not os.path.isdir(outputdir):
+        fail_msg("The output directory {0} does not exist".format(outputdir))
+        
     if args.virt:
-        composer.create(outputdir=getattr(composer, 'outputdir'), post=args.post)
+        composer.create(ouputdir, post=args.post)
     else:
-        composer.createContainer(outputdir=getattr(composer, 'outputdir'), post=args.post)
+        composer.createContainer(outputdir, post=args.post)
 
     composer.cleanup()

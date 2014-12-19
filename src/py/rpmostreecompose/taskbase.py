@@ -131,11 +131,6 @@ class TaskBase(object):
             else:
                 self.util_tdl = args.util_tdl
 
-            # Check if the lorax outputdir already exists
-            lorax_outputdir = os.path.join(outputdir, "lorax")
-            if os.path.exists(lorax_outputdir):
-                fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
-
         if self.http_proxy:
             os.environ['http_proxy'] = self.http_proxy
 
