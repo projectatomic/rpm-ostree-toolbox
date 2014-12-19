@@ -157,11 +157,13 @@ class KojiBuilder(ImgBuilder):
 
 
 class ImageFactoryTask(TaskBase):
-    def create(self, outputdir, name, ksfile, tdl, imageouttypes):
+    def create(self, imageoutputdir, name, ksfile, tdl, imageouttypes):
         self._name = name
         self._tdl = tdl
         self._kickstart = ksfile
         imgfunc = ImageFunctions()
+
+        os.mkdir(imageoutputdir)
 
         [res, rev] = self.repo.resolve_rev(self.ref, False)
         [res, commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
@@ -218,10 +220,6 @@ class ImageFactoryTask(TaskBase):
         # myuuid = "fd301dce-fba3-421d-a2e8-182cf2cefaf8"
         # pim = PersistentImageManager.default_manager()
         # image = pim.image_with_id(myuuid)
-
-        imageoutputdir = os.path.join(outputdir, "images")
-        if not os.path.exists(imageoutputdir):
-            os.mkdir(imageoutputdir)
 
         # Copy the qcow2 file to the outputdir
         outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
@@ -359,7 +357,8 @@ def main(cmd):
     parser.add_argument('--name', type=str, required=False, help='Image name')
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')
     parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
-    parser.add_argument('-o', '--outputdir', type=str, required=False, help='Path to image output directory')
+    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
+    parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
     parser.add_argument('-k', '--kickstart', type=str, required=False, help='Path to kickstart') 
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
@@ -367,13 +366,19 @@ def main(cmd):
      
     imagetypes = parseimagetypes(args.images)
 
+    if os.path.exists(args.outputdir):
+        if not args.overwrite:
+            fail_msg("The output directory {0} already exists.".format(args.outputdir))
+        else:
+            shutil.rmtree(args.outputdir)
+
     composer = ImageFactoryTask(args, cmd, profile=args.profile)
 
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
     try:
-        composer.create(outputdir=getattr(composer, 'outputdir'),
+        composer.create(imageoutputdir=args.outputdir,
                         name=getattr(composer, 'name'),
                         ksfile=getattr(composer, 'kickstart'),
                         tdl=getattr(composer, 'tdl'),

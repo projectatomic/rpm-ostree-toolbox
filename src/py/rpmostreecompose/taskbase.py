@@ -29,7 +29,7 @@ import iniparse
 from .utils import fail_msg
 
 class TaskBase(object):
-    ATTRS = [ 'outputdir', 'workdir', 'rpmostree_cache_dir', 'pkgdatadir', 'ostree_repo',
+    ATTRS = [ 'workdir', 'rpmostree_cache_dir', 'pkgdatadir',
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos',
@@ -59,10 +59,8 @@ class TaskBase(object):
         except ConfigParser.ParsingError as e:
             fail_msg("Error parsing your config file {0}: {1}".format(configfile, e.message))            
 
-        outputdir = self.getConfigValue("outputdir", settings, profile, defValue=os.getcwd())
-        
-        outputdir = settings.get('DEFAULT', 'outputdir', "")
-        settings.set('DEFAULT', 'outputdir', outputdir)
+        self.outputdir = os.getcwd()
+        self.ostree_repo = self.outputdir + '/repo'
 
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
@@ -83,10 +81,6 @@ class TaskBase(object):
 
         if 'virtnetwork' in args:
             self.virtnetwork = args.virtnetwork
-
-        # Set outputdir if overriden by command line
-        if 'outputdir' in args and args.outputdir is not None:
-            setattr(self, 'outputdir', args.outputdir)
 
         self.os_nr = "{0}-{1}".format(getattr(self, 'os_name'), getattr(self, 'release'))
 
@@ -156,7 +150,7 @@ class TaskBase(object):
             sections = settings.sections()
             fail_msg("Section {0} is not defined in your config file ({1}). Valid sections/profiles are {2}".format(
                 profile, configfile, sections))
-        config_req = ['ostree_repo', 'os_name', 'os_pretty_name', 'outputdir',
+        config_req = ['os_name', 'os_pretty_name',
                       'tree_name', 'tree_file', 'arch', 'release', 'ref', 'yum_baseurl',
                       'docker_os_name']
         missing_confs = []

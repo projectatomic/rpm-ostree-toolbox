@@ -160,7 +160,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
         run_sync(db_cmd)
 
-    def createContainer(self, outputdir, post=None):
+    def createContainer(self, installer_outputdir, post=None):
         imgfunc = ImageFunctions()
         repos = self.getrepos(self.jsonfilename)
         print "Using lorax.repo:\n" + repos
@@ -202,20 +202,20 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         httpd_port = str(trivhttp.http_port)
         print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
 
-        outputdir = os.path.abspath(outputdir)
+        installer_outputdir = os.path.abspath(installer_outputdir)
 
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
         dr_cmd = ['docker', 'run', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
                   '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
-                  '-v', '{0}:{1}'.format(outputdir, '/out'),
+                  '-v', '{0}:{1}'.format(installer_outputdir, '/out'),
                   docker_image_name]
         run_sync(dr_cmd)
         trivhttp.stop()
 
         # We injected data into boot.iso, so it's now installer.iso
-        lorax_output = outputdir + '/lorax'
+        lorax_output = installer_outputdir + '/lorax'
         lorax_images = lorax_output + '/images'
         os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
 
@@ -230,7 +230,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                         treeout.write(line)
         os.rename(treeinfo_tmp, treeinfo)
 
-    def create(self, outputdir, post=None):
+    def create(self, installer_outputdir, post=None):
         imgfunc = ImageFunctions()
         repos = self.getrepos(self.jsonfilename)
         util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
@@ -303,9 +303,9 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         thread.join()
 
         # Extract the tarball of built images
-        print "Extracting images to {0}/images".format(outputdir)
+        print "Extracting images to {0}/images".format(installer_outputdir)
         t = tarfile.open(loraxiso_image.data)
-        t.extractall(path=outputdir)
+        t.extractall(path=installer_outputdir)
         trivhttp.stop()
 
 # End Composer
@@ -324,23 +324,27 @@ def main(cmd):
     parser.add_argument('--virt', action='store_true', help='Use libvirt')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
+    parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
     args = parser.parse_args()
     composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
 
-    outputdir = getattr(composer, 'outputdir')
+    installer_outputdir = args.outputdir
     # Check if the lorax outputdir already exists
-    lorax_outputdir = os.path.join(outputdir, "lorax")
+    lorax_outputdir = os.path.join(installer_outputdir, "lorax")
     if os.path.exists(lorax_outputdir):
-        fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
-    elif not os.path.isdir(outputdir):
-        fail_msg("The output directory {0} does not exist".format(outputdir))
+        if not args.overwrite:
+            fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
+        else:
+            shutil.rmtree(lorax_outputdir)
+    elif not os.path.isdir(installer_outputdir):
+        fail_msg("The output directory {0} does not exist".format(installer_outputdir))
         
     if args.virt:
-        composer.create(ouputdir, post=args.post)
+        composer.create(installer_ouputdir, post=args.post)
     else:
-        composer.createContainer(outputdir, post=args.post)
+        composer.createContainer(installer_outputdir, post=args.post)
 
     composer.cleanup()
