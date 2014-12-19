@@ -62,6 +62,9 @@ class TaskBase(object):
         self.outputdir = os.getcwd()
         self.ostree_repo = self.outputdir + '/repo'
 
+        if os.path.isdir(self.outputdir + "/.git"):
+            fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
+
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
             print (attr, val)
