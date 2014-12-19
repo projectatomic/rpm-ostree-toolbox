@@ -173,7 +173,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         trivhttp = TrivialHTTP()
         trivhttp.start(self.ostree_repo)
         httpd_port = str(trivhttp.http_port)
-        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+        print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
 
         substitutions = {'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
@@ -200,7 +200,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         trivhttp = TrivialHTTP()
         trivhttp.start(self.ostree_repo)
         httpd_port = str(trivhttp.http_port)
-        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+        print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
 
         outputdir = os.path.abspath(outputdir)
 
