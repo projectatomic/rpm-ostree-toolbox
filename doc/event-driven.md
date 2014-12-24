@@ -1,8 +1,8 @@
 Overview
 ========
 
-This document describes the proposed architecture for an event-driven
-build system. It is current as of 2014-10-23.
+This document describes the architecture of the event-driven build system
+used to generate composes. It is current as of 2014-12-24.
 
 Background: Starting Points
 ---------------------------
@@ -11,18 +11,21 @@ To understand the events we monitor, you need to understand the
 inputs to `rpm-ostree-toolbox treecompose`. Here's a simplified
 view of the directory in which treecompose runs:
 
-    workdir/
+    /srv/workdir/
     |-- config.ini                   <---- starting point
     `-- atomic-tree/
         |-- atomic-tree.json         <---- packages and repos
         |-- mybaserepo.repo
         `-- myotherrepo.repo
 
-The starting point is `config.ini`. This is a hand-maintained file,
-not under source control. For our purposes the only interesting
-entry in it is **tree_file**, which points to a JSON file containing
-packages and repos (here `atomic-tree.json`). `config.ini` can be
-watched via *inotify*.
+The starting point is `config.ini`. As of 2014-12-02 this is supposed
+to be a symlink to `atomic-tree/config.ini`, which is under git,
+but this is not enforced. There might still be some `/srv/foo` workdir
+trees with a hand-maintained, not-under-git config.ini.
+
+For our purposes the only interesting entry in config.ini is **tree_file**,
+which points to a JSON file containing packages and repos (here
+`atomic-tree.json`).
 
 The JSON file lives in a git-managed directory. It is expected to
 be readonly on the compose server, with updates via `git pull`.
@@ -33,8 +36,8 @@ The JSON file defines one or more yum repos, whence it
 gets the RPM packages in the compose. We detect changes to
 these repos via *message bus* notifications.
 
-Proposed Watch Mechanism
-========================
+Watch Mechanism
+===============
 
 Message Bus
 -----------
@@ -43,13 +46,9 @@ A message bus listener triggers on **repobuild** messages. Upon
 receipt it simply echoes the repo name to its stdout. When running
 under systemd this goes to the **journal**.
 
-(*Note*: this is a change from the current 2014-10-23 implementation,
-in which the message bus listener has a configurable rule for
-which repos to trigger on. That was a bad design decision, caused
-by my ignorance of the compose process. The proposed mechanism
-echoes **ALL** repos, leaving it up to another process to decide
-whether the repo is a desired one or not. This also gets rid of
-the trigger_command config setting.)
+Note that *all* repobuild messages get logged. It is up to the
+`rpm-ostree-toolbox-watch` tool (below) to decide whether or not
+those should trigger a compose.
 
 Git
 ---
@@ -71,34 +70,29 @@ these will go into the **journal**.
 Triggering a Compose
 --------------------
 
+The watch process is `src/scripts/rpm-ostree-toolbox-watch`.
+
 There is *one process per tree*. That is: there are multiple compose
-trees, each of them for a different git branch of the `atomic` repo
-containing the JSON file and repos.
+trees of the form `/srv/treename`, each of them for a different git branch
+of the `atomic` repo containing the JSON file and repos.
 
 This process watches the systemd journal:
 
-    journalctl -u rpm-ostree-compose-build-monitor@koji.service \
-               -u rpm-ostree-compose-git-monitor.service \
-               -ef
+    journalctl -u rpm-ostree-toolbox-build-monitor@SOMETHING.service \
+               -u rpm-ostree-toolbox-git-monitor.service \
+               -ef --output=json
 
-Output will look like:
+Note the `--output=json`. It's nice of journalctl to offer that option. It
+spits out a JSON-formatted message on one line.
 
-    <timestamp> <hostname> <service>[pid]: <useful info>
-
-e.g.
-
-    Oct 22 16:56:35 myhost rpm-ostree-toolbox-git-monitor[27275]: ip:127.0.0.5 branch:master
-    Oct 22 18:11:23 myhost rpm-ostree-toolbox-build-monitor[27355]: foo-repo
-    Oct 22 18:11:28 myhost rpm-ostree-toolbox-build-monitor[27355]: bar-repo
-
-Upon seeing a **`git-monitor`** line, the watcher process:
+Upon seeing a message from **`git-monitor`**, the watcher process:
 
 1. reads the given branch name. This is the *pushed* branch.
 1. reads `atomic-dir/.git/HEAD` (or runs `git rev-parse --abbrev-ref HEAD`).
 This is the *current* branch.
 1. if *pushed* = *current*, run **git pull -r** and run a compose.
 
-Upon seeing a **`build-monitor`** line, the watcher process:
+Upon seeing a message from **`build-monitor`**, the watcher process:
 
 1. reads the repo name. This is the *updated* repo.
 1. reads `config.ini` to get the `tree_file` path (JSON file)
@@ -106,13 +100,13 @@ Upon seeing a **`build-monitor`** line, the watcher process:
 the *desired* repos.
 1. if the *updated* repo is one of the *desired* repos, run a compose.
 
-The watcher process should also add an inotify watch on `config.ini`.
+FIXME: the watcher process should add an inotify watch on `config.ini`.
 
 Summary
 =======
 
-I believe this is much saner than the current one-trigger-fits-all
-mechanism: it provides *granularity*, so different compose trees can
+This mechanism improves on past efforts as follows: it provides
+*granularity*, so different compose trees can
 trigger only on events relevant to them. It provides *logging*, so
 it's possible to determine what triggered a given compose (for
 debugging). It *reduces duplication*, because the build-monitor
