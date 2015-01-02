@@ -113,9 +113,16 @@ class ImgFacBuilder(ImgBuilder):
         This method compliments the builder method by taking its
         uuid and outputputting various image formats
         """
+
+        # This dict maps the imagetype to an imageformat
+        imageformats = {'kvm':'kvm', 'rhev': 'rhev', 'vsphere':'vsphere', 
+                        'vagrant-libvirt':'rhevm', 'vagrant-virtualbox': 'vsphere'
+                        }
+
         print "Working on a {0} for {1}".format(imagetype, baseid)
+        vagrant = True if imagetype in ['vagrant-virtualbox', 'vagrant-libvirt'] else False
         bd = BuildDispatcher()
-        imagebuilder = bd.builder_for_target_image(imagetype, image_id=baseid, template=None, parameters=imgopts)
+        imagebuilder = bd.builder_for_target_image(imageformats[imagetype], image_id=baseid, template=None, parameters=imgopts)
         target_image = imagebuilder.target_image
         thread = imagebuilder.target_thread
         thread.join()
@@ -128,6 +135,11 @@ class ImgFacBuilder(ImgBuilder):
         print "Creating OVA for {0}".format(imagetype)
 
         bdi = BuildDispatcher()
+        if imagetype == 'vagrant-virtualbox' :
+            imgopts['vsphere_ova_format'] = 'vagrant-virtualbox'
+        if imagetype == 'vagrant-libvirt':
+            imgopts['rhevm_ova_format'] = 'vagrant-libvirt'
+
         ovabuilder = bdi.builder_for_target_image("ova", image_id=target_image.identifier, template=None, parameters=imgopts)
         target_ova = ovabuilder.target_image
         ovathread = ovabuilder.target_thread
@@ -157,10 +169,19 @@ class KojiBuilder(ImgBuilder):
 
 
 class ImageFactoryTask(TaskBase):
-    def create(self, imageoutputdir, name, ksfile, tdl, imageouttypes):
+    def create(self, imageoutputdir, name, ksfile, vkickstart, tdl, imageouttypes):
         self._name = name
         self._tdl = tdl
         self._kickstart = ksfile
+        self._imageoutputdir = imageoutputdir
+        self.vksfile = None
+        self.vagrant = False
+        if len(self.returnCommon(imageouttypes, ['vagrant-libvirt', 'vagrant-virtualbox'])) > 0:
+            self.vagrant = True
+            self.vksfile = vkickstart if vkickstart is not None else os.path.join(os.path.dirname(ksfile),os.path.basename(ksfile).replace(".ks","-vagrant.ks"))
+            if not os.path.isfile(self.vksfile):
+                fail_msg("Unable to find the kickstart file {0} required to build vagrant images.  Consider passing --vkickstart to override.".format(self.vksfile))
+        
         imgfunc = ImageFunctions()
 
         os.mkdir(imageoutputdir)
@@ -177,33 +198,9 @@ class ImageFactoryTask(TaskBase):
 
         trivhttp = TrivialHTTP()
         trivhttp.start(self.ostree_repo)
-        httpd_port = str(trivhttp.http_port)
-        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
-
-        ks_basename = os.path.basename(ksfile)
-        flattened_ks = os.path.join(self.workdir, ks_basename)
-
-        # FIXME - eventually stop hardcoding this via some mapping
-        if ks_basename.find('fedora') >= 0:
-            kickstart_version = 'F21'
-        else:
-            kickstart_version = 'RHEL7'
-        run_sync(['ksflatten', '--version', kickstart_version,
-                  '-c', ksfile, '-o', flattened_ks])
-
-        # TODO: Pull kickstart from separate git repo
-        ksdata = open(flattened_ks).read()
-        substitutions = { 'OSTREE_PORT': httpd_port,
-                          'OSTREE_REF':  self.ref,
-                          'OSTREE_OSNAME':  self.os_name}
-        if '@OSTREE_HOST_IP@' in ksdata:
-            host_ip = getDefaultIP(hostnet=self.virtnetwork)
-            substitutions['OSTREE_HOST_IP'] = host_ip
-
-        for subname, subval in substitutions.iteritems():
-            print subname, subval
-            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
-
+        self.httpd_port = str(trivhttp.http_port)
+        print "trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid)
+        ksdata = self.formatKS(ksfile)
         imgfunc.checkoz()
         parameters =  { "install_script": ksdata,
                         "generate_icicle": False,
@@ -233,20 +230,33 @@ class ImageFactoryTask(TaskBase):
             print outputname
 
             qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
-            subprocess.check_call(qemucmd)
+            run_sync(qemucmd)
             imageouttypes.pop(imageouttypes.index("raw"))
             print "Created: {0}".format(outputname)
 
-        for imagetype in imageouttypes:
-            if imagetype in ['vsphere', 'rhevm']:
+        if 'hyperv' in imageouttypes:
+            print image.data
+            outputname = os.path.join(imageoutputdir, '%s-hyperv.vhd' % (self.os_nr))
+            # We can only create a gen1 hyperv image with no ova right now
+            qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', image.data, outputname]
+            run_sync(qemucmd)
+            imageouttypes.pop(imageouttypes.index("hyperv"))
+            print "Created: {0}".format(outputname)
 
-                # Imgfac will ensure proper qemu type is used
-                print "Creating {0} image".format(imagetype)
-                target_image = self.builder.buildimagetype(imagetype, image.identifier)
-                infile = target_image.data
-                outfile = os.path.join(imageoutputdir, '%s-%s.ova' % (self._name, imagetype))
-                shutil.copyfile(infile, outfile)
-                print "Created: {0}".format(outfile)
+        for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
+            self.generateOVA(imagetype, "ova", image)
+
+        if self.vagrant:
+            # vagrant images need a new base image with changes in the KS
+            ksdata = self.formatKS(self.vksfile)
+            parameters =  { "install_script": ksdata,
+                            "generate_icicle": False,
+                            "oz_overrides": json.dumps(imgfunc.ozoverrides)
+                           }
+            vimage = self.builder.build(template=open(self._tdl).read(), parameters=parameters)
+
+            for imagetype in self.returnCommon(imageouttypes, ['vagrant-libvirt','vagrant-virtualbox']):
+                self.generateOVA(imagetype, "box", vimage)
 
         trivhttp.stop()
 
@@ -258,6 +268,49 @@ class ImageFactoryTask(TaskBase):
             return ImgFacBuilder(workdir=self.workdir, verbosemode=verbosemode)
         else:
             return KojiBuilder()
+
+
+    def formatKS(self, ksfile):
+        ks_basename = os.path.basename(ksfile)
+        flattened_ks = os.path.join(self.workdir, ks_basename)
+
+        # FIXME - eventually stop hardcoding this via some mapping
+        if ks_basename.find('fedora') >= 0:
+            kickstart_version = 'F21'
+        else:
+            kickstart_version = 'RHEL7'
+        run_sync(['ksflatten', '--version', kickstart_version,
+                  '-c', ksfile, '-o', flattened_ks])
+
+        # TODO: Pull kickstart from separate git repo
+        ksdata = open(flattened_ks).read()
+        substitutions = { 'OSTREE_PORT': self.httpd_port,
+                          'OSTREE_REF':  self.ref,
+                          'OSTREE_OSNAME':  self.os_name}
+        if '@OSTREE_HOST_IP@' in ksdata:
+            host_ip = getDefaultIP(hostnet=self.virtnetwork)
+            substitutions['OSTREE_HOST_IP'] = host_ip
+
+        for subname, subval in substitutions.iteritems():
+            print subname, subval
+            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
+
+        return ksdata
+
+
+    def generateOVA(self, imagetype, fileext, image):
+        print "Creating {0} image".format(imagetype)
+        # Imgfac will ensure proper qemu type is used
+        target_image = self.builder.buildimagetype(imagetype, image.identifier)
+        infile = target_image.data
+        outfile = os.path.join(self._imageoutputdir, '%s-%s.%s' % (self._name, imagetype, fileext))
+        shutil.copyfile(infile, outfile)
+        print "Created: {0}".format(outfile)
+
+
+    def returnCommon(self, list1, list2):
+        return list(set(list1).intersection(list2))
+
 
 ## End Composer
 
@@ -337,7 +390,7 @@ class ImageFunctions(object):
         print "Oz overrides: {0}".format(self.ozoverrides)
 
 def parseimagetypes(imagetypes):
-    default_image_types = ["kvm", "raw", "vsphere", "rhevm"]
+    default_image_types = ["kvm", "raw", "vsphere", "rhevm", "vagrant-virtualbox", "vagrant-libvirt", "hyperv"]
     if imagetypes == None:
         return default_image_types
 
@@ -359,7 +412,8 @@ def main(cmd):
     parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
     parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
     parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
-    parser.add_argument('-k', '--kickstart', type=str, required=False, help='Path to kickstart') 
+    parser.add_argument('-k', '--kickstart', type=str, required=False, default=None, help='Path to kickstart') 
+    parser.add_argument('--vkickstart', type=str, required=False, help='Path to vagrant kickstart') 
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
@@ -381,6 +435,7 @@ def main(cmd):
         composer.create(imageoutputdir=args.outputdir,
                         name=getattr(composer, 'name'),
                         ksfile=getattr(composer, 'kickstart'),
+                        vkickstart=args.vkickstart,
                         tdl=getattr(composer, 'tdl'),
                         imageouttypes=imagetypes
                         )
