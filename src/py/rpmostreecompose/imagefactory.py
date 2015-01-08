@@ -115,7 +115,7 @@ class ImgFacBuilder(ImgBuilder):
         """
 
         # This dict maps the imagetype to an imageformat
-        imageformats = {'kvm':'kvm', 'rhev': 'rhev', 'vsphere':'vsphere', 
+        imageformats = {'kvm':'kvm', 'rhevm': 'rhevm', 'vsphere':'vsphere', 
                         'vagrant-libvirt':'rhevm', 'vagrant-virtualbox': 'vsphere'
                         }
 
@@ -200,52 +200,56 @@ class ImageFactoryTask(TaskBase):
         trivhttp.start(self.ostree_repo)
         self.httpd_port = str(trivhttp.http_port)
         print "trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid)
-        ksdata = self.formatKS(ksfile)
+
         imgfunc.checkoz()
-        parameters =  { "install_script": ksdata,
-                        "generate_icicle": False,
-                        "oz_overrides": json.dumps(imgfunc.ozoverrides)
-                      }
-        print "Starting build"
-        image = self.builder.build(template=open(self._tdl).read(), parameters=parameters)
+        # The conditional handles the building of the images listed below
+        if len(self.returnCommon(imageouttypes, ['rhevm', 'vsphere', 'kvm', 'raw', 'hyperv'])) > 0:
+            ksdata = self.formatKS(ksfile)
+            parameters =  { "install_script": ksdata,
+                            "generate_icicle": False,
+                            "oz_overrides": json.dumps(imgfunc.ozoverrides)
+                          }
+            print "Starting build"
+            image = self.builder.build(template=open(self._tdl).read(), parameters=parameters)
 
-        # For debug, you can comment out the above and enable the code below
-        # to skip the initial image creation.  Just point myuuid at the proper
-        # image uuid
+            # For debug, you can comment out the above and enable the code below
+            # to skip the initial image creation.  Just point myuuid at the proper
+            # image uuid
 
-        # self.builder.download()
-        # myuuid = "fd301dce-fba3-421d-a2e8-182cf2cefaf8"
-        # pim = PersistentImageManager.default_manager()
-        # image = pim.image_with_id(myuuid)
+            # self.builder.download()
+            # myuuid = "fd301dce-fba3-421d-a2e8-182cf2cefaf8"
+            # pim = PersistentImageManager.default_manager()
+            # image = pim.image_with_id(myuuid)
 
-        # Copy the qcow2 file to the outputdir
-        outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
-        shutil.copyfile(image.data, outputname)
-        print "Created: {0}".format(outputname)
-
-        if 'raw' in imageouttypes:
-            print "Processing image from qcow2 to raw"
-            print image.data
-            outputname = os.path.join(imageoutputdir, '%s.raw' % (self.os_nr))
-            print outputname
-
-            qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
-            run_sync(qemucmd)
-            imageouttypes.pop(imageouttypes.index("raw"))
+            # Copy the qcow2 file to the outputdir
+            outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
+            shutil.copyfile(image.data, outputname)
             print "Created: {0}".format(outputname)
 
-        if 'hyperv' in imageouttypes:
-            print image.data
-            outputname = os.path.join(imageoutputdir, '%s-hyperv.vhd' % (self.os_nr))
-            # We can only create a gen1 hyperv image with no ova right now
-            qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', image.data, outputname]
-            run_sync(qemucmd)
-            imageouttypes.pop(imageouttypes.index("hyperv"))
-            print "Created: {0}".format(outputname)
+            if 'raw' in imageouttypes:
+                print "Processing image from qcow2 to raw"
+                print image.data
+                outputname = os.path.join(imageoutputdir, '%s.raw' % (self.os_nr))
+                print outputname
 
-        for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
-            self.generateOVA(imagetype, "ova", image)
+                qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
+                run_sync(qemucmd)
+                imageouttypes.pop(imageouttypes.index("raw"))
+                print "Created: {0}".format(outputname)
 
+            if 'hyperv' in imageouttypes:
+                print image.data
+                outputname = os.path.join(imageoutputdir, '%s-hyperv.vhd' % (self.os_nr))
+                # We can only create a gen1 hyperv image with no ova right now
+                qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', image.data, outputname]
+                run_sync(qemucmd)
+                imageouttypes.pop(imageouttypes.index("hyperv"))
+                print "Created: {0}".format(outputname)
+
+            for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
+                self.generateOVA(imagetype, "ova", image)
+
+        # This conditional handles the vagrant images
         if self.vagrant:
             # vagrant images need a new base image with changes in the KS
             ksdata = self.formatKS(self.vksfile)
