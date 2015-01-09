@@ -18,6 +18,7 @@
 
 import json
 import os
+import shutil
 import argparse
 import subprocess
 import oz.TDL
