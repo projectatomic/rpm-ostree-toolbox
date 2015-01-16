@@ -33,6 +33,7 @@ class TaskBase(object):
               'os_name', 'os_pretty_name',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos',
+              'is_final',
               'lorax_exclude_packages',
               'local_overrides', 'http_proxy',
               'selinux', 'configdir', 'docker_os_name'

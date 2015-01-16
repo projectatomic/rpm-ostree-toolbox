@@ -113,6 +113,8 @@ EOF
         http_proxy = os.environ.get('http_proxy')
         if http_proxy:
             lorax_cmd.extend(['--proxy', http_proxy])
+        if bool(getattr(self, 'is_final')):
+            lorax_cmd.append('--isfinal')
         lorax_cmd.extend(lorax_repos)
         excludes = getattr(self, 'lorax_exclude_packages')
         if excludes is not None:
