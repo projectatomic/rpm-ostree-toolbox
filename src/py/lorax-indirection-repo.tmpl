@@ -4,7 +4,7 @@
 &lt;%page args='root'/&gt;
 mkdir install/ostree
 runcmd ostree --repo=${root}/install/ostree init --mode=archive-z2
-runcmd ostree remote add ostree-mirror --repo=${root}/install/ostree/ --set=gpg-verify=false http://@OSTREE_HOSTIP@:@OSTREE_PORT@
+runcmd ostree remote add ostree-mirror --repo=${root}/install/ostree/ --set=gpg-verify=false http://@OSTREE_HOSTIP@:@OSTREE_PORT@/@OSTREE_PATH@
 runcmd ostree --repo=${root}/install/ostree/ pull --mirror ostree-mirror @OSTREE_REF@
 
 

@@ -27,6 +27,9 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
 from .utils import fail_msg
+import urlparse
+import urllib2
+from gi.repository import GLib
 
 class TaskBase(object):
     ATTRS = [ 'workdir', 'rpmostree_cache_dir', 'pkgdatadir',
@@ -60,10 +63,6 @@ class TaskBase(object):
             fail_msg("Error parsing your config file {0}: {1}".format(configfile, e.message))            
 
         self.outputdir = os.getcwd()
-        if args.ostreerepo is not None:
-            self.ostree_repo = args.ostreerepo
-        else:
-            self.ostree_repo = self.outputdir + '/repo'
 
         if os.path.isdir(self.outputdir + "/.git"):
             fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
@@ -73,6 +72,37 @@ class TaskBase(object):
             print (attr, val)
             setattr(self, attr, val)
 
+        # Checking ostreerepo
+        self.ostree_port = None
+        self.ostree_repo_is_remote = False
+        self.httpd_path = ""
+        self.httpd_host = ""
+        if args.ostreerepo is not None:
+            self.ostree_repo = args.ostreerepo
+            # The ostree_repo is given in URL format
+            if 'http' in self.ostree_repo:
+                self.ostree_repo_is_remote = True
+                urlp = urlparse.urlparse(self.ostree_repo)
+                # FIXME
+                # When ostree creates the summary file by default, re-enable this.
+                # try:
+                #     summaryfile = urllib2.urlopen(urlparse.urljoin(self.ostree_repo, "summary")).read()
+
+                # except urllib2.HTTPError, e:
+                #     fail_msg("Unable to open the ostree sumarry file with the URL {0} due to {1}".format(self.ostree_repo, str(e)))
+
+                # except urllib2.URLError, e:
+                #     fail_msg("Unable to open the ostree summary file with the URL {0} due to {1}".format(self.ostree_repo, str(e)))
+                self.httpd_port = str(urlp.port if urlp.port is not None else 80)
+                self.httpd_path = urlp.path
+                self.httpd_host = urlp.hostname
+
+                # FIXME
+                # When ostree creates the summary file by default, re-enable this.
+                # if not self.checkRefExists(getattr(self,'ref'), summaryfile):
+                #     fail_msg("The ref {0} cannot be found in in the URL {1}".format(getattr(self,'ref'), self.ostree_repo))
+        else:
+            self.ostree_repo = self.outputdir + '/repo'
         release = getattr(self, 'release')
         # Check for configdir in attrs, else fallback to dir holding config
         if getattr(self, 'configdir') is None:
@@ -289,3 +319,18 @@ class TaskBase(object):
         configvalue = self.hasValue(configkey, settings, "DEFAULT") if configvalue is None else configvalue
         return defValue if configvalue is None else configvalue
 
+    def checkRefExists(self, ref, httpresponse):
+        """
+        This function determines if the HTTP ostree location has the same
+        ref that is required.
+        """
+        typestr = GLib.VariantType.new('(a(s(taya{sv}))a{sv})')
+        bytedata = GLib.Bytes.new(str(httpresponse))
+        d = GLib.Variant.new_from_bytes(typestr, bytedata, False)
+        httprefs = []
+        for httpref in d[0]:
+            httprefs.append(httpref[0])
+        if ref in httprefs:
+            return True
+        else:
+            return False
