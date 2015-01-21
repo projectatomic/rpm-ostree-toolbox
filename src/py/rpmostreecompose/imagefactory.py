@@ -186,20 +186,23 @@ class ImageFactoryTask(TaskBase):
 
         os.mkdir(imageoutputdir)
 
-        [res, rev] = self.repo.resolve_rev(self.ref, False)
-        [res, commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
+        # FIXME : future version control related
+        # [res, rev] = self.repo.resolve_rev(self.ref, False)
+        # [res, commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
 
-        commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
-        print commitdate
+        # commitdate = GLib.DateTime.new_from_unix_utc(OSTree.commit_get_timestamp(commit)).format("%c")
+        # print commitdate
 
         port_file_path = self.workdir + '/repo-port'
 
-        # Start trivial-httpd
-
-        trivhttp = TrivialHTTP()
-        trivhttp.start(self.ostree_repo)
-        self.httpd_port = str(trivhttp.http_port)
-        print "trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid)
+        if not self.ostree_repo_is_remote: 
+            # Start trivial-httpd
+            trivhttp = TrivialHTTP()
+            trivhttp.start(self.ostree_repo)
+            self.httpd_port = str(trivhttp.http_port)
+            print "trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid)
+        else:
+            httpd_port = self.ostree_port
 
         imgfunc.checkoz()
         # The conditional handles the building of the images listed below
@@ -262,7 +265,9 @@ class ImageFactoryTask(TaskBase):
             for imagetype in self.returnCommon(imageouttypes, ['vagrant-libvirt','vagrant-virtualbox']):
                 self.generateOVA(imagetype, "box", vimage)
 
-        trivhttp.stop()
+        if not self.ostree_repo_is_remote: 
+            trivhttp.stop()
+
 
     @property
     def builder(self):
@@ -292,8 +297,14 @@ class ImageFactoryTask(TaskBase):
                           'OSTREE_REF':  self.ref,
                           'OSTREE_OSNAME':  self.os_name}
         if '@OSTREE_HOST_IP@' in ksdata:
-            host_ip = getDefaultIP(hostnet=self.virtnetwork)
+            if not self.ostree_repo_is_remote:
+                host_ip = getDefaultIP(hostnet=self.virtnetwork)
+            else:
+                host_ip = self.httpd_host
             substitutions['OSTREE_HOST_IP'] = host_ip
+
+        if ('@OSTREE_PATH' in ksdata):
+            substitutions['OSTREE_PATH'] = self.httpd_path
 
         for subname, subval in substitutions.iteritems():
             print subname, subval

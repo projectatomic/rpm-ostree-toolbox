@@ -24,6 +24,7 @@ import subprocess
 import oz.TDL
 import oz.GuestFactory
 import tarfile
+import shutil
 
 from .taskbase import TaskBase
 from .utils import fail_msg, run_sync, TrivialHTTP
@@ -131,7 +132,7 @@ for x in $(seq 0 6); do
   path=/dev/loop${{x}}
   if ! test -b ${{path}}; then mknod -m660 ${{path}} b 7 ${{x}}; fi
 done
-sed -e "s,@OSTREE_PORT@,${{OSTREE_PORT}}," < /root/lorax.tmpl.in > /root/lorax.tmpl
+sed -e "s,@OSTREE_PORT@,${{OSTREE_PORT}}," -e "s,@OSTREE_PATH@,${{OSTREE_PATH}}," -e "s,@OSTREE_HOST@,${{OSTREE_HOST}},"  < /root/lorax.tmpl.in > /root/lorax.tmpl
 echo Running: {0}
 exec {0}
 """.format(" ".join(map(GLib.shell_quote, lorax_cmd)))
@@ -171,13 +172,16 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
         port_file_path = self.workdir + '/repo-port'
 
-        # Start trivial-httpd
-
-        trivhttp = TrivialHTTP()
-        trivhttp.start(self.ostree_repo)
-        httpd_port = str(trivhttp.http_port)
-        print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
-
+        if not self.ostree_repo_is_remote:
+            # Start trivial-httpd
+            trivhttp = TrivialHTTP()
+            trivhttp.start(self.ostree_repo)
+            httpd_port = str(trivhttp.http_port)
+            httpd_url = '127.0.0.1'
+            print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
+        else:
+            httpd_port = self.httpd_port
+            httpd_url = self.httpd_host
         substitutions = {'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
                          'OS_PRETTY': self.os_pretty_name,
@@ -191,19 +195,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
 
         os_pretty_name = os_pretty_name = '"{0}"'.format(getattr(self, 'os_pretty_name'))
-
         docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(getattr(self, 'docker_os_name'))
         if not ('docker-lorax' in self.args.skip_subtask):
             self._buildDockerImage(docker_image_name)
         else:
             print "Skipping subtask docker-lorax"
-
-        # Start trivial-httpd
-
-        trivhttp = TrivialHTTP()
-        trivhttp.start(self.ostree_repo)
-        httpd_port = str(trivhttp.http_port)
-        print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
 
         installer_outputdir = os.path.abspath(installer_outputdir)
 
@@ -211,11 +207,16 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
         dr_cmd = ['docker', 'run', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
-                  '--workdir', '/out', '--rm', '-it', '--net=host', '--privileged=true',
+                  '-e', 'OSTREE_HOST={0}'.format(httpd_url),
+                  '-e', 'OSTREE_PATH={0}'.format(self.httpd_path),
+                  '--workdir', '/out', '-it', '--net=host', '--privileged=true',
                   '-v', '{0}:{1}'.format(installer_outputdir, '/out'),
                   docker_image_name]
+
         run_sync(dr_cmd)
-        trivhttp.stop()
+
+        if not self.ostree_repo_is_remote:
+            trivhttp.stop()
 
         # We injected data into boot.iso, so it's now installer.iso
         lorax_output = installer_outputdir + '/lorax'
@@ -248,12 +249,14 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         port_file_path = self.workdir + '/repo-port'
 
-        # Start trivial-httpd
-
-        trivhttp = TrivialHTTP()
-        trivhttp.start(self.ostree_repo)
-        httpd_port = str(trivhttp.http_port)
-        print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+        if not self.ostree_repo_is_remote: 
+            # Start trivial-httpd
+            trivhttp = TrivialHTTP()
+            trivhttp.start(self.ostree_repo)
+            httpd_port = str(trivhttp.http_port)
+            print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+        else:
+            httpd_port = str(self.httpd_port)
         substitutions = {'OSTREE_PORT': httpd_port,
                          'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
@@ -262,8 +265,14 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          'OS_VER': self.release
                          }
         if '@OSTREE_HOSTIP@' in util_xml:
-            host_ip = getDefaultIP()
+            if not self.ostree_repo_is_remote:
+                host_ip = getDefaultIP()
+            else:
+                host_ip = self.httpd_host
             substitutions['OSTREE_HOSTIP'] = host_ip
+
+        if '@OSTREE_PATH' in util_xml:
+            substitutions['OSTREE_PATH'] = self.httpd_path
 
         print type(util_xml)
         for subname, subval in substitutions.iteritems():
@@ -309,7 +318,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         print "Extracting images to {0}/images".format(installer_outputdir)
         t = tarfile.open(loraxiso_image.data)
         t.extractall(path=installer_outputdir)
-        trivhttp.stop()
+        if not self.ostree_repo_is_remote:
+            trivhttp.stop()
 
 # End Composer
 
@@ -346,7 +356,7 @@ def main(cmd):
         fail_msg("The output directory {0} does not exist".format(installer_outputdir))
         
     if args.virt:
-        composer.create(installer_ouputdir, post=args.post)
+        composer.create(installer_outputdir, post=args.post)
     else:
         composer.createContainer(installer_outputdir, post=args.post)
 
