@@ -204,7 +204,7 @@ class ImageFactoryTask(TaskBase):
         else:
             httpd_port = self.ostree_port
 
-        imgfunc.checkoz()
+        imgfunc.checkoz("qcow2")
         # The conditional handles the building of the images listed below
         if len(self.returnCommon(imageouttypes, ['rhevm', 'vsphere', 'kvm', 'raw', 'hyperv'])) > 0:
             ksdata = self.formatKS(ksfile)
@@ -279,38 +279,38 @@ class ImageFactoryTask(TaskBase):
             return KojiBuilder()
 
 
-    def formatKS(self, ksfile):
-        ks_basename = os.path.basename(ksfile)
-        flattened_ks = os.path.join(self.workdir, ks_basename)
+    #def formatKS(self, ksfile):
+    #    ks_basename = os.path.basename(ksfile)
+    #    flattened_ks = os.path.join(self.workdir, ks_basename)
 
-        # FIXME - eventually stop hardcoding this via some mapping
-        if ks_basename.find('fedora') >= 0:
-            kickstart_version = 'F21'
-        else:
-            kickstart_version = 'RHEL7'
-        run_sync(['ksflatten', '--version', kickstart_version,
-                  '-c', ksfile, '-o', flattened_ks])
+    #    # FIXME - eventually stop hardcoding this via some mapping
+    #    if ks_basename.find('fedora') >= 0:
+    #        kickstart_version = 'F21'
+    #    else:
+    #        kickstart_version = 'RHEL7'
+    #    run_sync(['ksflatten', '--version', kickstart_version,
+    #              '-c', ksfile, '-o', flattened_ks])
 
-        # TODO: Pull kickstart from separate git repo
-        ksdata = open(flattened_ks).read()
-        substitutions = { 'OSTREE_PORT': self.httpd_port,
-                          'OSTREE_REF':  self.ref,
-                          'OSTREE_OSNAME':  self.os_name}
-        if '@OSTREE_HOST_IP@' in ksdata:
-            if not self.ostree_repo_is_remote:
-                host_ip = getDefaultIP(hostnet=self.virtnetwork)
-            else:
-                host_ip = self.httpd_host
-            substitutions['OSTREE_HOST_IP'] = host_ip
+    #    # TODO: Pull kickstart from separate git repo
+    #    ksdata = open(flattened_ks).read()
+    #    substitutions = { 'OSTREE_PORT': self.httpd_port,
+    #                      'OSTREE_REF':  self.ref,
+    #                      'OSTREE_OSNAME':  self.os_name}
+    #    if '@OSTREE_HOST_IP@' in ksdata:
+    #        if not self.ostree_repo_is_remote:
+    #            host_ip = getDefaultIP(hostnet=self.virtnetwork)
+    #        else:
+    #            host_ip = self.httpd_host
+    #        substitutions['OSTREE_HOST_IP'] = host_ip
 
-        if ('@OSTREE_PATH' in ksdata):
-            substitutions['OSTREE_PATH'] = self.httpd_path
+    #    if ('@OSTREE_PATH' in ksdata):
+    #        substitutions['OSTREE_PATH'] = self.httpd_path
 
-        for subname, subval in substitutions.iteritems():
-            print subname, subval
-            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
+    #    for subname, subval in substitutions.iteritems():
+    #        print subname, subval
+    #        ksdata = ksdata.replace('@%s@' % (subname, ), subval)
 
-        return ksdata
+    #    return ksdata
 
 
     def generateOVA(self, imagetype, fileext, image):
@@ -367,6 +367,11 @@ def getDefaultIP(hostnet=None):
 class ImageFunctions(object):
     def __init__(self):
         self.ozoverrides = {}
+        self.workdir = ""
+        self.httpd_port = ""
+        self.ref = ""
+        self.os_name = ""
+        self.ostree_repo_is_remote=""
 
     def addozoverride(self, cfgsec, key, value):
         """
@@ -378,7 +383,7 @@ class ImageFunctions(object):
             self.ozoverrides[cfgsec] = {}
         self.ozoverrides[cfgsec][key] = value
 
-    def checkoz(self):
+    def checkoz(self, defimagetype):
         """
         Method which checks the oz.cfg for certain variables to alert
         user to potential errors caused by the cfg itself. It also
@@ -388,7 +393,7 @@ class ImageFunctions(object):
         cfg.read('/etc/oz/oz.cfg')
 
         # Set default image to always be KVM
-        self.addozoverride('libvirt', 'image_type', 'qcow2')
+        self.addozoverride('libvirt', 'image_type', defimagetype)
 
         if cfg.has_option("libvirt","memory"):
             if int(cfg.get("libvirt","memory")) < 2048:
@@ -403,6 +408,54 @@ class ImageFunctions(object):
         self.addozoverride('libvirt', 'cpus', '2')
 
         print "Oz overrides: {0}".format(self.ozoverrides)
+
+    def formatKS(self, ksfile):
+        print "---------"
+        print getattr(self, 'ref')
+        print self.ref
+        #print self.ref
+        exit(1)
+        ks_basename = os.path.basename(ksfile)
+        flattened_ks = os.path.join(self.workdir, ks_basename)
+
+        # FIXME - eventually stop hardcoding this via some mapping
+        if ks_basename.find('fedora') >= 0:
+            kickstart_version = 'F21'
+        else:
+            kickstart_version = 'RHEL7'
+        run_sync(['ksflatten', '--version', kickstart_version,
+                  '-c', ksfile, '-o', flattened_ks])
+
+        # TODO: Pull kickstart from separate git repo
+        ksdata = open(flattened_ks).read()
+        substitutions = { 'OSTREE_REF':  self.ref,
+                          'OSTREE_OSNAME':  self.os_name}
+
+        if '@OSTREE_PORT@' in ksdata:
+             substitutions['OSTREE_PORT'] = self.httpd_port
+
+        if '@OSTREE_HOST_IP@' in ksdata:
+            if not self.ostree_repo_is_remote:
+                host_ip = getDefaultIP(hostnet=self.virtnetwork)
+            else:
+                host_ip = self.httpd_host
+            substitutions['OSTREE_HOST_IP'] = host_ip
+
+        if '@OSTREE_PATH@' in ksdata:
+            substitutions['OSTREE_PATH'] = self.httpd_path
+
+        if '@OSTREE_LOCATION@' in ksdata:
+            if not self.ostree_repo_is_remote:
+                ostree_location = "file:///install/ostree"
+            else:
+                ostree_location = "http://{0}:{1}:{2}".format(self.httpd_host, self.httpd_port, self.httpd_path)
+            substitutions['OSTREE_LOCATION'] = ostree_location
+
+        for subname, subval in substitutions.iteritems():
+            print subname, subval
+            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
+        exit(1)
+        return ksdata
 
 def parseimagetypes(imagetypes):
     default_image_types = ["kvm", "raw", "vsphere", "rhevm", "vagrant-virtualbox", "vagrant-libvirt", "hyperv"]

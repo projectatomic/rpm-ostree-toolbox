@@ -73,6 +73,7 @@ class TaskBase(object):
             print (attr, val)
             setattr(self, attr, val)
 
+        self.ref = getattr(self, 'ref')
         # Checking ostreerepo
         self.ostree_port = None
         self.ostree_repo_is_remote = False
@@ -120,9 +121,9 @@ class TaskBase(object):
             self.virtnetwork = args.virtnetwork
 
         self.os_nr = "{0}-{1}".format(getattr(self, 'os_name'), getattr(self, 'release'))
-
+        
         # Set kickstart file from args, else fallback to default
-        if cmd == "imagefactory":
+        if cmd in ["imagefactory", "liveimage"]:
             if 'kickstart' in args and args.kickstart is not None:
                 setattr(self, 'kickstart', args.kickstart)
             else:
@@ -134,7 +135,7 @@ class TaskBase(object):
                     fail_msg("No kickstart was passed with -k and {0} does not exist".format(getattr(self, 'kickstart')))
 
         # Set tdl from args, else fallback to default
-        if cmd in ["imagefactory"] or ( cmd in ['installer'] and args.virt ):
+        if cmd in ["imagefactory", "liveimage"] or ( cmd in ['installer'] and args.virt ):
             if 'tdl' in args and args.tdl is not None:
                 setattr(self, 'tdl', args.tdl)
             else:

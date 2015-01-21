@@ -283,7 +283,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         global verbosemode
         imgfacbuild = ImgFacBuilder(verbosemode=verbosemode)
         imgfacbuild.verbosemode = verbosemode
-        imgfunc.checkoz()
+        imgfunc.checkoz("qcow2")
         util_ks = self.createUtilKS(self.tdl)
 
         # Building of utility image
