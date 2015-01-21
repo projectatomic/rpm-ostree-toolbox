@@ -22,8 +22,7 @@ import shutil
 
 from .taskbase import TaskBase
 from .utils import fail_msg, run_sync
-from .imagefactory import ImageFunctions
-from .imagefactory import ImageFactoryTask
+from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
 from imgfac.PersistentImageManager import PersistentImageManager
@@ -31,29 +30,45 @@ import json
 
 
 
-class CreateLiveTask(TaskBase):
-    def createLiveDisk(self, imageoutputdir, tdl, ksfile, name):
-        self._imageoutputdir = imageoutputdir
-        self._tdl = tdl
-        self._ksfile = ksfile
-        self._name = name
-        self.ref = self.ref
-        workdir = self.workdir
-        imgfunc = ImageFunctions()
-        imgfunc.checkoz("raw")
-        imgfacbuild = ImgFacBuilder()
+class CreateLiveTask(AbstractImageFactoryTask):
+    def __init__(self, args, cmd, profile):
+        TaskBase(args, cmd, profile)
+        self._args = args
+        self._cmd = cmd
+        self._profile = profile
+        print "++++++++++++++++++++++"
+        print args
+        print cmd
+        print profile
+        print "++++++++++++++++++++++"
+        print vars(self)
+        
+    def createLiveDisk(self):
+        AbstractImageFactoryTask.__init__(self)
+        taskbase = TaskBase(self._args, self._cmd, self._profile)
+        #AbstractImageFactoryTask.__init__(self)
+        for i in vars(TaskBase):
+            print i
+        print vars(TaskBase)
+        print self.__dict__
+        #print getattr(self, 'ref')
+        #self.show_config()
+        
+        #AbstractImageFactoryTask.__init__(imageoutputdir, name, ksfile, tdl)
+        #TaskBase.__init__(args, cmd, profile)
+        print self._args.outputdir
+        self.checkoz("raw")
+
+        #imgfunc = AbstractImageFactoryTask()
+        #imgfunc = ImageFunctions()
+        #imgfunc.checkoz("raw")
+        #imgfacbuild = ImgFacBuilder()
         #imgfactask = ImageFactoryTask()
         #if not self.ostree_repo_is_remote: 
         print "************"
-        print self.ref
-        print self.ostree_port
-        print self.ostree_repo
-        print self.ostree_repo_is_remote
-        print self.ref
-        print self.os_name
-
-
-        ksdata = imgfunc.formatKS(ksfile)
+        print taskbase.ref
+        ksfile = self._args.kickstart
+        ksdata = self.formatKS(ksfile)
         print ksdata
 
         exit(1)
@@ -88,13 +103,18 @@ def main(cmd):
             shutil.rmtree(args.outputdir)
 
     composer = CreateLiveTask(args, cmd, profile=args.profile)
-    composer.show_config()
+    #composer = CreateLiveTask()
+    #taskbase = TaskBase(args, cmd, profile=args.profile)
+    #composer.show_config()
+    #print getattr(taskbase, 'name')
     try:
-        composer.createLiveDisk(imageoutputdir=args.outputdir,
-                        name=getattr(composer, 'name'),
-                        ksfile=getattr(composer, 'kickstart'),
-                        tdl=getattr(composer, 'tdl'),
-                        )
+        composer.createLiveDisk()
+        #composer.createLiveDisk(imageoutputdir=args.outputdir,
+        #                name=getattr(taskbase, 'name'),
+        #                ksfile=getattr(taskbase, 'kickstart'),
+        #                tdl=getattr(taskbase, 'tdl'),
+        #                taskbase=taskbase
+        #                )
 
     finally:
         #composer.cleanup()

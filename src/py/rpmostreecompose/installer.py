@@ -28,7 +28,7 @@ import shutil
 
 from .taskbase import TaskBase
 from .utils import fail_msg, run_sync, TrivialHTTP
-from .imagefactory import ImageFunctions
+from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
 from imgfac.PersistentImageManager import PersistentImageManager

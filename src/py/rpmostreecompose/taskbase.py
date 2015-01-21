@@ -44,6 +44,9 @@ class TaskBase(object):
 
 
     def __init__(self, args, cmd, profile=None):
+        print "**************************"
+        print "Taskbase __init called"
+        print "**************************"
         self._repo = None
         self.args = args
         configfile = args.config
@@ -67,7 +70,7 @@ class TaskBase(object):
 
         if os.path.isdir(self.outputdir + "/.git"):
             fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
-
+        print "Dumping ATTRS:"
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
             print (attr, val)
@@ -170,7 +173,6 @@ class TaskBase(object):
         if self.workdir is None:
             self.workdir = tempfile.mkdtemp('.tmp', 'atomic-treecompose')
             self.workdir_is_tmp = True
-
         self.buildjson()
 
         return
@@ -292,6 +294,7 @@ class TaskBase(object):
         return self._repo
 
     def show_config(self):
+        print "Dumping Config:"
         print "\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ])
 
     def cleanup(self):

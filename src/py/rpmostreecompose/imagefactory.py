@@ -167,9 +167,99 @@ class KojiBuilder(ImgBuilder):
     def download(self):
         pass
 
+class AbstractImageFactoryTask(TaskBase):
+    def __init__(self):
+        self.ozoverrides = {}
+        print "**********************"
+        print "Abstract init called"
+        print "**********************"
+        #pass
 
-class ImageFactoryTask(TaskBase):
+    def addozoverride(self, cfgsec, key, value):
+        """
+        Method that takes oz config section and adds a key
+        and value to prepare an json formatted oz override
+        value
+        """
+        if cfgsec not in self.ozoverrides.keys():
+            self.ozoverrides[cfgsec] = {}
+        self.ozoverrides[cfgsec][key] = value
+
+    def checkoz(self, defimagetype):
+        """
+        Method which checks the oz.cfg for certain variables to alert
+        user to potential errors caused by the cfg itself. It also
+        returns the default image type.
+        """
+        cfg = ConfigParser.SafeConfigParser()
+        cfg.read('/etc/oz/oz.cfg')
+
+        # Set default image to always be KVM
+        self.addozoverride('libvirt', 'image_type', defimagetype)
+
+        if cfg.has_option("libvirt","memory"):
+            if int(cfg.get("libvirt","memory")) < 2048:
+                print "Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048"
+                self.addozoverride('libvirt', 'memory', 2048)
+
+        else:
+            # We need at least 2GB of memory for imagefactory
+            self.addozoverride('libvirt', 'memory', 2048)
+
+        # Two cpus is prefered for producer/consumer ops
+        self.addozoverride('libvirt', 'cpus', '2')
+
+        print "Oz overrides: {0}".format(self.ozoverrides)
+
+    def formatKS(self, ksfile):
+        print "---------"
+        print vars(self)
+        ks_basename = os.path.basename(ksfile)
+        flattened_ks = os.path.join(self.workdir, ks_basename)
+
+        # FIXME - eventually stop hardcoding this via some mapping
+        if ks_basename.find('fedora') >= 0:
+            kickstart_version = 'F21'
+        else:
+            kickstart_version = 'RHEL7'
+        run_sync(['ksflatten', '--version', kickstart_version,
+                  '-c', ksfile, '-o', flattened_ks])
+
+        # TODO: Pull kickstart from separate git repo
+        ksdata = open(flattened_ks).read()
+        substitutions = { 'OSTREE_REF':  self.ref,
+                          'OSTREE_OSNAME':  self.os_name}
+
+        if '@OSTREE_PORT@' in ksdata:
+             substitutions['OSTREE_PORT'] = self.httpd_port
+
+        if '@OSTREE_HOST_IP@' in ksdata:
+            if not self.ostree_repo_is_remote:
+                host_ip = getDefaultIP(hostnet=self.virtnetwork)
+            else:
+                host_ip = self.httpd_host
+            substitutions['OSTREE_HOST_IP'] = host_ip
+
+        if '@OSTREE_PATH@' in ksdata:
+            substitutions['OSTREE_PATH'] = self.httpd_path
+
+        if '@OSTREE_LOCATION@' in ksdata:
+            if not self.ostree_repo_is_remote:
+                ostree_location = "file:///install/ostree"
+            else:
+                ostree_location = "http://{0}:{1}:{2}".format(self.httpd_host, self.httpd_port, self.httpd_path)
+            substitutions['OSTREE_LOCATION'] = ostree_location
+
+        for subname, subval in substitutions.iteritems():
+            print subname, subval
+            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
+        exit(1)
+        return ksdata
+
+
+class ImageFactoryTask(AbstractImageFactoryTask):
     def create(self, imageoutputdir, name, ksfile, vkickstart, tdl, imageouttypes):
+        AbstractImageFactoryTask.__init__(self)
         self._name = name
         self._tdl = tdl
         self._kickstart = ksfile
@@ -363,99 +453,6 @@ def getDefaultIP(hostnet=None):
     return ip
 
 
-
-class ImageFunctions(object):
-    def __init__(self):
-        self.ozoverrides = {}
-        self.workdir = ""
-        self.httpd_port = ""
-        self.ref = ""
-        self.os_name = ""
-        self.ostree_repo_is_remote=""
-
-    def addozoverride(self, cfgsec, key, value):
-        """
-        Method that takes oz config section and adds a key
-        and value to prepare an json formatted oz override
-        value
-        """
-        if cfgsec not in self.ozoverrides.keys():
-            self.ozoverrides[cfgsec] = {}
-        self.ozoverrides[cfgsec][key] = value
-
-    def checkoz(self, defimagetype):
-        """
-        Method which checks the oz.cfg for certain variables to alert
-        user to potential errors caused by the cfg itself. It also
-        returns the default image type.
-        """
-        cfg = ConfigParser.SafeConfigParser()
-        cfg.read('/etc/oz/oz.cfg')
-
-        # Set default image to always be KVM
-        self.addozoverride('libvirt', 'image_type', defimagetype)
-
-        if cfg.has_option("libvirt","memory"):
-            if int(cfg.get("libvirt","memory")) < 2048:
-                print "Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048"
-                self.addozoverride('libvirt', 'memory', 2048)
-
-        else:
-            # We need at least 2GB of memory for imagefactory
-            self.addozoverride('libvirt', 'memory', 2048)
-
-        # Two cpus is prefered for producer/consumer ops
-        self.addozoverride('libvirt', 'cpus', '2')
-
-        print "Oz overrides: {0}".format(self.ozoverrides)
-
-    def formatKS(self, ksfile):
-        print "---------"
-        print getattr(self, 'ref')
-        print self.ref
-        #print self.ref
-        exit(1)
-        ks_basename = os.path.basename(ksfile)
-        flattened_ks = os.path.join(self.workdir, ks_basename)
-
-        # FIXME - eventually stop hardcoding this via some mapping
-        if ks_basename.find('fedora') >= 0:
-            kickstart_version = 'F21'
-        else:
-            kickstart_version = 'RHEL7'
-        run_sync(['ksflatten', '--version', kickstart_version,
-                  '-c', ksfile, '-o', flattened_ks])
-
-        # TODO: Pull kickstart from separate git repo
-        ksdata = open(flattened_ks).read()
-        substitutions = { 'OSTREE_REF':  self.ref,
-                          'OSTREE_OSNAME':  self.os_name}
-
-        if '@OSTREE_PORT@' in ksdata:
-             substitutions['OSTREE_PORT'] = self.httpd_port
-
-        if '@OSTREE_HOST_IP@' in ksdata:
-            if not self.ostree_repo_is_remote:
-                host_ip = getDefaultIP(hostnet=self.virtnetwork)
-            else:
-                host_ip = self.httpd_host
-            substitutions['OSTREE_HOST_IP'] = host_ip
-
-        if '@OSTREE_PATH@' in ksdata:
-            substitutions['OSTREE_PATH'] = self.httpd_path
-
-        if '@OSTREE_LOCATION@' in ksdata:
-            if not self.ostree_repo_is_remote:
-                ostree_location = "file:///install/ostree"
-            else:
-                ostree_location = "http://{0}:{1}:{2}".format(self.httpd_host, self.httpd_port, self.httpd_path)
-            substitutions['OSTREE_LOCATION'] = ostree_location
-
-        for subname, subval in substitutions.iteritems():
-            print subname, subval
-            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
-        exit(1)
-        return ksdata
 
 def parseimagetypes(imagetypes):
     default_image_types = ["kvm", "raw", "vsphere", "rhevm", "vagrant-virtualbox", "vagrant-libvirt", "hyperv"]
