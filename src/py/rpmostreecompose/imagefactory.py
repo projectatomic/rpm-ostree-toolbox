@@ -168,7 +168,8 @@ class KojiBuilder(ImgBuilder):
         pass
 
 class AbstractImageFactoryTask(TaskBase):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        TaskBase.__init__(self, *args, **kwargs)
         self.ozoverrides = {}
         print "**********************"
         print "Abstract init called"

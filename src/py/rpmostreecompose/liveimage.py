@@ -32,7 +32,7 @@ import json
 
 class CreateLiveTask(AbstractImageFactoryTask):
     def __init__(self, args, cmd, profile):
-        TaskBase(args, cmd, profile)
+        AbstractImageFactoryTask.__init__(self, args, cmd, profile)
         self._args = args
         self._cmd = cmd
         self._profile = profile
@@ -44,9 +44,6 @@ class CreateLiveTask(AbstractImageFactoryTask):
         print vars(self)
         
     def createLiveDisk(self):
-        AbstractImageFactoryTask.__init__(self)
-        taskbase = TaskBase(self._args, self._cmd, self._profile)
-        #AbstractImageFactoryTask.__init__(self)
         for i in vars(TaskBase):
             print i
         print vars(TaskBase)
@@ -66,7 +63,6 @@ class CreateLiveTask(AbstractImageFactoryTask):
         #imgfactask = ImageFactoryTask()
         #if not self.ostree_repo_is_remote: 
         print "************"
-        print taskbase.ref
         ksfile = self._args.kickstart
         ksdata = self.formatKS(ksfile)
         print ksdata
