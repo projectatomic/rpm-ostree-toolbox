@@ -28,7 +28,7 @@ import shutil
 
 from .taskbase import TaskBase
 from .utils import fail_msg, run_sync, TrivialHTTP
-from .imagefactory import ImageFunctions
+from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
 from imgfac.PersistentImageManager import PersistentImageManager
@@ -165,13 +165,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         run_sync(db_cmd)
 
     def createContainer(self, installer_outputdir, post=None):
-        imgfunc = ImageFunctions()
         repos = self.getrepos(self.jsonfilename)
         print "Using lorax.repo:\n" + repos
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
         port_file_path = self.workdir + '/repo-port'
-
         if not self.ostree_repo_is_remote:
             # Start trivial-httpd
             trivhttp = TrivialHTTP()
@@ -202,7 +200,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             print "Skipping subtask docker-lorax"
 
         installer_outputdir = os.path.abspath(installer_outputdir)
-
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
@@ -234,8 +231,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                         treeout.write(line)
         os.rename(treeinfo_tmp, treeinfo)
 
-    def create(self, installer_outputdir, post=None):
-        imgfunc = ImageFunctions()
+    def create(self, installer_outputdir, args, cmd, profile, post=None):
+        imgfunc = AbstractImageFactoryTask(args, cmd, profile)
         repos = self.getrepos(self.jsonfilename)
         util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
         lorax_repos = []
@@ -283,7 +280,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         global verbosemode
         imgfacbuild = ImgFacBuilder(verbosemode=verbosemode)
         imgfacbuild.verbosemode = verbosemode
-        imgfunc.checkoz()
+        imgfunc.checkoz("qcow2")
         util_ks = self.createUtilKS(self.tdl)
 
         # Building of utility image
@@ -291,8 +288,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                       "generate_icicle": False,
                       "oz_overrides": json.dumps(imgfunc.ozoverrides)
                       }
-        print "Starting build"
         if self.util_uuid is None:
+            print "Starting Utility image build"
             util_image = imgfacbuild.build(template=open(self.util_tdl).read(), parameters=parameters)
             print "Created Utility Image: {0}".format(util_image.data)
 
@@ -356,7 +353,7 @@ def main(cmd):
         fail_msg("The output directory {0} does not exist".format(installer_outputdir))
         
     if args.virt:
-        composer.create(installer_outputdir, post=args.post)
+        composer.create(installer_outputdir, args, cmd, profile=args.profile, post=args.post)
     else:
         composer.createContainer(installer_outputdir, post=args.post)
 

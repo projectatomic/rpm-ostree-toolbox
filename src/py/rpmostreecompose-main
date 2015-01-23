@@ -20,7 +20,7 @@ import os
 import sys
 
 from rpmostreecompose import imagefactory, installer, treecompose
-from rpmostreecompose import taskrunner, version
+from rpmostreecompose import taskrunner, version, liveimage
 
 def execgjs(cmd, argv):
     jsdir=os.path.join(os.environ['OSTBUILD_DATADIR'] + '/js')
@@ -34,6 +34,7 @@ def usage(iserr):
   treecompose - Use rpm-ostree to compose RPMs to a tree
   imagefactory - Use ImageFactory to create a disk image
   installer - Use Lorax to create an installable ISO and PXE boot loader
+  liveimage - Use Imagefactory and Live Media Creator to create live media
   create-vm-disk - Deprecated in favor of imagefactory
   postprocess-disk - Deprecated; instead use imagefactory to generate multiple images
 """)
@@ -57,6 +58,8 @@ def main():
         installer.main(cmd)
     elif cmd == 'treecompose':
         treecompose.main(cmd)
+    elif cmd == 'liveimage':
+        liveimage.main(cmd)
     elif cmd == 'taskrunner':
         taskrunner.main()
     elif cmd in ['create-vm-disk', 'postprocess-disk', 'trivial-autocompose']:
