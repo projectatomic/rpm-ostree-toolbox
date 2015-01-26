@@ -169,6 +169,12 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         print "Using lorax.repo:\n" + repos
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
+
+        # Yeah, this is pretty awful.
+        if post is not None:
+            post_str = '%r' % ('%post --erroronfail\n' + open(post).read() + '\n%end\n', )
+            lorax_tmpl += '\nappend usr/share/anaconda/interactive-defaults.ks %s\n' % (post_str, ) 
+
         port_file_path = self.workdir + '/repo-port'
         if not self.ostree_repo_is_remote:
             # Start trivial-httpd
