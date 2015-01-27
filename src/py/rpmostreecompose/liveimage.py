@@ -136,6 +136,8 @@ CMD ["/bin/sh", "/root/lmc_shell.sh"]
         # Make readable for users
         os.chmod(finaldir, 0755)
 
+        # Remove temporary image
+        os.remove(os.path.join(lmc_outputdir, "lmc_input_disk"))
         print "Your images can be found at {0}".format(finaldir)
 
 
