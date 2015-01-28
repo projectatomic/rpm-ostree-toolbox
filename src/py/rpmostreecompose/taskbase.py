@@ -31,6 +31,23 @@ import urlparse
 import urllib2
 from gi.repository import GLib
 
+def _merge_lists(x, y):
+    try:
+        return list(set(x + y))
+    except TypeError:
+        pass # no __hash__, Eg. List of lists
+
+    ret = []
+    for i in x:
+        if i in ret:
+            continue
+        ret.append(i)
+    for i in y:
+        if i in ret:
+            continue
+        ret.append(i)
+    return ret
+
 class TaskBase(object):
     ATTRS = [ 'workdir', 'rpmostree_cache_dir', 'pkgdatadir',
               'os_name', 'os_pretty_name',
@@ -229,8 +246,7 @@ class TaskBase(object):
                     params[key] = incparams[key]
                 # If its a list and already exists, merge them 
                 if key in params and type(incparams[key]) == list:
-                    merged = list(set(params[key] + incparams[key]))
-                    params[key] = merged
+                    params[key] = _merge_lists(params[key], incparams[key])
         return params
 
     def buildjson(self):
