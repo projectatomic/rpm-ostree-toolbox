@@ -55,6 +55,7 @@ class TaskBase(object):
               'yum_baseurl', 'lorax_additional_repos',
               'is_final',
               'lorax_exclude_packages',
+              'lorax_include_packages',
               'local_overrides', 'http_proxy',
               'selinux', 'configdir', 'docker_os_name'
             ]

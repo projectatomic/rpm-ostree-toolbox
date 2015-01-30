@@ -122,6 +122,11 @@ EOF
             for exclude in excludes.split(','):
                 if exclude == '': continue
                 lorax_cmd.extend(['-e', exclude.strip()])
+        includes = getattr(self, 'lorax_include_packages')
+        if includes is not None:
+            for include in includes.split(','):
+                if include == '': continue
+                lorax_cmd.extend(['-i', include.strip()])
         lorax_cmd.append('/out/lorax')
 
         # There is currently a bug for loop devices in containers,
