@@ -37,20 +37,20 @@ class CreateLiveTask(AbstractImageFactoryTask):
         self._tdl = getattr(self, 'tdl')
 
     def createLiveDisk(self):
-        self.checkoz("raw")
-        imgfacbuild = ImgFacBuilder()
-        ksfile = self._args.kickstart
-        ksdata = self.formatKS(ksfile)
-        parameters = {"install_script": ksdata,
-                       "generate_icicle": False,
-                       "oz_overrides": json.dumps(self.ozoverrides)
-                      }
         print "Starting build"
 
         if self._args.diskimage:
             self._inputdiskpath = self._args.diskimage
             print "Using existing disk image: {0}".format(self._args.diskimage)
         else:
+            self.checkoz("raw")
+            imgfacbuild = ImgFacBuilder()
+            ksfile = self._args.kickstart
+            ksdata = self.formatKS(ksfile)
+            parameters = {"install_script": ksdata,
+                        "generate_icicle": False,
+                        "oz_overrides": json.dumps(self.ozoverrides)
+                        }
             image = imgfacbuild.build(template=open(self._tdl).read(), parameters=parameters)
             self._inputdiskpath = image.data
             print "Created input disk: {0}".format(image.data)
