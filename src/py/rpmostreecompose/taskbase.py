@@ -26,6 +26,7 @@ import subprocess
 import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
+import ConfigParser  # for errors
 from .utils import fail_msg
 import urlparse
 import urllib2
@@ -284,16 +285,35 @@ class TaskBase(object):
         """
 
         treefile_base = os.path.dirname(self.tree_file)
-        repos = params.get('repos', [])
-        for repo in repos:
-            repo_filename = repo + '.repo'
-            repo_path = os.path.join(treefile_base, repo_filename) 
-            if not os.path.exists(repo_path):
-                fail_msg("Unable to find %s as declared in the json input file(s)" % repo_path)
+
+        repo_dict = {}  # map repository names to .repo files
+        for basename in os.listdir(treefile_base):
+            if not basename.endswith('.repo'):
+                continue
+            repo_data = iniparse.ConfigParser()
             try:
-                shutil.copyfile(repo_path, os.path.join(self.workdir, repo_filename))
+                repo_data.read(os.path.join(treefile_base, basename))
+            except ConfigParser.Error as e:
+                fail_msg("Error parsing file {0}: {1}".format(basename, e.message))
+            for repo_name in repo_data.sections():
+                repo_dict[repo_name] = basename
+
+        copy_files = {}
+        repos = params.get('repos', [])
+        for repo_name in repos:
+            try:
+                basename = repo_dict[repo_name]
+            except KeyError:
+                fail_msg("Unable to find repo '%s' as declared in the json input file(s)" % repo_name)
+            copy_orig = os.path.join(treefile_base, basename)
+            copy_dest = os.path.join(self.workdir, basename)
+            copy_files[copy_orig] = copy_dest
+
+        for copy_orig, copy_dest in copy_files.items():
+            try:
+                shutil.copyfile(copy_orig, copy_dest)
             except:
-                fail_msg("Unable to copy {0} to tempdir".format(repo_filename))
+                fail_msg("Unable to copy {0} to tempdir".format(copy_orig))
         post_script = params.get('postprocess-script')
         if post_script is not None:
             shutil.copy2(os.path.join(treefile_base, post_script), self.workdir)
