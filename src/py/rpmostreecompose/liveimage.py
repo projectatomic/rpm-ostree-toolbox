@@ -21,7 +21,7 @@ import os
 import shutil
 
 from .taskbase import TaskBase
-from .utils import fail_msg, run_sync
+from .utils import fail_msg, run_sync, log
 from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from .installer import InstallerTask
@@ -37,11 +37,11 @@ class CreateLiveTask(AbstractImageFactoryTask):
         self._tdl = getattr(self, 'tdl')
 
     def createLiveDisk(self):
-        print "Starting build"
+        log("Starting build")
 
         if self._args.diskimage:
             self._inputdiskpath = self._args.diskimage
-            print "Using existing disk image: {0}".format(self._args.diskimage)
+            log("Using existing disk image: {0}".format(self._args.diskimage))
         else:
             self.checkoz("raw")
             imgfacbuild = ImgFacBuilder()
@@ -53,7 +53,7 @@ class CreateLiveTask(AbstractImageFactoryTask):
                         }
             image = imgfacbuild.build(template=open(self._tdl).read(), parameters=parameters)
             self._inputdiskpath = image.data
-            print "Created input disk: {0}".format(image.data)
+            log("Created input disk: {0}".format(image.data))
 
         self.lmcContainer(self._inputdiskpath)
 
@@ -138,7 +138,7 @@ CMD ["/bin/sh", "/root/lmc_shell.sh"]
 
         # Remove temporary image
         os.remove(os.path.join(lmc_outputdir, "lmc_input_disk"))
-        print "Your images can be found at {0}".format(finaldir)
+        log("Your images can be found at {0}".format(finaldir))
 
 
 # End liveimage

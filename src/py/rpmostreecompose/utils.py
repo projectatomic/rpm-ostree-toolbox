@@ -31,9 +31,14 @@ def fail_msg(msg):
 
 def run_sync(args, **kwargs):
     """Wraps subprocess.check_call(), logging the command line too."""
-    print "Running: %s" % (subprocess.list2cmdline(args), )
+    log("Running: %s" % (subprocess.list2cmdline(args), ))
     subprocess.check_call(args, **kwargs)
 
+def log(msg):
+    "Print to standard output and flush it"
+    sys.stdout.write(msg)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
 
 class TrivialHTTP():
     """ This class is used to control ostree's trivial-httpd which is used

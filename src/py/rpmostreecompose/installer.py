@@ -27,7 +27,7 @@ import tarfile
 import shutil
 
 from .taskbase import TaskBase
-from .utils import fail_msg, run_sync, TrivialHTTP
+from .utils import fail_msg, run_sync, TrivialHTTP, log
 from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
@@ -65,7 +65,7 @@ class InstallerTask(TaskBase):
     def dumpTempMeta(self, fullpathname, tmpstr):
         with open(fullpathname, 'w') as f:
             f.write(tmpstr)
-        print "Wrote {0}".format(fullpathname)
+        log("Wrote {0}".format(fullpathname))
         return fullpathname
 
     def createUtilKS(self, tdl):
@@ -171,7 +171,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
     def createContainer(self, installer_outputdir, post=None):
         repos = self.getrepos(self.jsonfilename)
-        print "Using lorax.repo:\n" + repos
+        log("Using lorax.repo:\n" + repos)
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
 
@@ -187,7 +187,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             trivhttp.start(self.ostree_repo)
             httpd_port = str(trivhttp.http_port)
             httpd_url = '127.0.0.1'
-            print "trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid)
+            log("trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid))
         else:
             httpd_port = self.httpd_port
             httpd_url = self.httpd_host
@@ -198,7 +198,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          }
 
         for subname, subval in substitutions.iteritems():
-            print '{0} => {1}'.format(subname, subval)
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
@@ -208,7 +207,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         if not ('docker-lorax' in self.args.skip_subtask):
             self._buildDockerImage(docker_image_name)
         else:
-            print "Skipping subtask docker-lorax"
+            log("Skipping subtask docker-lorax")
 
         installer_outputdir = os.path.abspath(installer_outputdir)
         # Docker run
@@ -262,7 +261,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             trivhttp = TrivialHTTP()
             trivhttp.start(self.ostree_repo)
             httpd_port = str(trivhttp.http_port)
-            print "trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid)
+            log("trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid))
         else:
             httpd_port = str(self.httpd_port)
         substitutions = {'OSTREE_PORT': httpd_port,
@@ -282,7 +281,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         if '@OSTREE_PATH' in util_xml:
             substitutions['OSTREE_PATH'] = self.httpd_path
 
-        print type(util_xml)
         for subname, subval in substitutions.iteritems():
             util_xml = util_xml.replace('@%s@' % (subname, ), subval)
 
@@ -300,14 +298,14 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                       "oz_overrides": json.dumps(imgfunc.ozoverrides)
                       }
         if self.util_uuid is None:
-            print "Starting Utility image build"
+            log("Starting Utility image build")
             util_image = imgfacbuild.build(template=open(self.util_tdl).read(), parameters=parameters)
-            print "Created Utility Image: {0}".format(util_image.data)
+            log("Created Utility Image: {0}".format(util_image.data))
 
         else:
             pim = PersistentImageManager.default_manager()
             util_image = pim.image_with_id(self.util_uuid)
-            print "Re-using Utility Image: {0}".format(util_image.identifier)
+            log("Re-using Utility Image: {0}".format(util_image.identifier))
 
         # Now lorax
         bd = BuildDispatcher()
@@ -316,14 +314,14 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                             "utility_customizations": util_xml,
                             "oz_overrides": json.dumps(imgfunc.ozoverrides)
                             }
-        print "Building the lorax image"
+        log("Building the lorax image")
         loraxiso_builder = bd.builder_for_target_image("indirection", image_id=util_image.identifier, template=None, parameters=lorax_parameters)
         loraxiso_image = loraxiso_builder.target_image
         thread = loraxiso_builder.target_thread
         thread.join()
 
         # Extract the tarball of built images
-        print "Extracting images to {0}/images".format(installer_outputdir)
+        log("Extracting images to {0}/images".format(installer_outputdir))
         t = tarfile.open(loraxiso_image.data)
         t.extractall(path=installer_outputdir)
         if not self.ostree_repo_is_remote:
