@@ -335,7 +335,12 @@ class TaskBase(object):
                                    "--repo="+self.ostree_repo, '--mode=archive-z2'])
         if self._repo is None:
             self._repo = OSTree.Repo(path=Gio.File.new_for_path(self.ostree_repo))
-            self._repo.open(None)
+
+            try:
+                self._repo.open(None)
+            except:
+                fail_msg("The repo location {0} has not been initialized.  Use 'ostree --repo={0} init --mode=archive-z2' to initialize and re-run rpm-ostree-toolbox".format(self.ostree_repo))
+
         return self._repo
 
     def show_config(self):
