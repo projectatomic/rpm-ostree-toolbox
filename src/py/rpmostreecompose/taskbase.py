@@ -316,7 +316,11 @@ class TaskBase(object):
         post_script = params.get('postprocess-script')
         if post_script is not None:
             shutil.copy2(os.path.join(treefile_base, post_script), self.workdir)
-            
+        for key in ['check-passwd', 'check-groups']:
+            check = params.get(key)
+            if check and check['type'] == 'file':
+                filename = check['filename']
+                shutil.copy2(os.path.join(treefile_base, filename), self.workdir)
 
     @property
     def repo(self):
