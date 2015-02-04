@@ -28,7 +28,7 @@ from gi.repository import Gio, OSTree, GLib
 import iniparse
 
 from .taskbase import TaskBase
-from .utils import run_sync, fail_msg
+from .utils import run_sync, fail_msg, log
 
 
 def _rev2version(repo, rev):
@@ -125,7 +125,7 @@ class Treecompose(TaskBase):
                     pass
                 elif int(tv[3]) < lv[3]:
                     fail_msg("<cve> of version is getting older.")
-            print "** Building Version:", self.tree_version
+            log("** Building Version:", self.tree_version)
             rpmostreecmd.append('--add-metadata-string=version=' + self.tree_version)
 
         rpmostreecachedir = self.rpmostree_cache_dir
@@ -155,8 +155,8 @@ def main(cmd):
     origrev, newrev = composer.compose_tree()
 
     if origrev != newrev:
-        print "%s => %s" % (composer.ref, newrev)
+        log("%s => %s" % (composer.ref, newrev))
     else:
-        print "%s is unchanged at %s" % (composer.ref, origrev)
+        log("%s is unchanged at %s" % (composer.ref, origrev))
 
     composer.cleanup()

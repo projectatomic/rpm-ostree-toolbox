@@ -27,7 +27,7 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib
 import iniparse
 import ConfigParser  # for errors
-from .utils import fail_msg
+from .utils import fail_msg, log
 import urlparse
 import urllib2
 from gi.repository import GLib
@@ -89,7 +89,6 @@ class TaskBase(object):
 
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
-            print (attr, val)
             setattr(self, attr, val)
 
         self.ref = getattr(self, 'ref')
@@ -336,7 +335,7 @@ class TaskBase(object):
         return self._repo
 
     def show_config(self):
-        print "\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ])
+        log("\n".join([ "%s=%s" % (x, str(getattr(self, x))) for x in self.ATTRS ]))
 
     def cleanup(self):
         if self.workdir_is_tmp:

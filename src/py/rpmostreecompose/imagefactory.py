@@ -40,7 +40,7 @@ import logging
 
 from .taskbase import TaskBase
 
-from .utils import run_sync, fail_msg, TrivialHTTP
+from .utils import run_sync, fail_msg, TrivialHTTP, log
 
 
 class ImgBuilder(object):
@@ -96,11 +96,8 @@ class ImgFacBuilder(ImgBuilder):
         bd = BuildDispatcher()
         builder = bd.builder_for_base_image(template=template,
                                             parameters=parameters)
-        print json.dumps(builder.app_config)
         image = builder.base_image
         thread = builder.base_thread
-        for key in image.metadata():
-            print "%s %s" % (key, getattr(image, key, None))
 
         thread.join()
 
@@ -119,7 +116,7 @@ class ImgFacBuilder(ImgBuilder):
                         'vagrant-libvirt':'rhevm', 'vagrant-virtualbox': 'vsphere'
                         }
 
-        print "Working on a {0} for {1}".format(imagetype, baseid)
+        log("Working on a {0} for {1}".format(imagetype, baseid))
         vagrant = True if imagetype in ['vagrant-virtualbox', 'vagrant-libvirt'] else False
         bd = BuildDispatcher()
         imagebuilder = bd.builder_for_target_image(imageformats[imagetype], image_id=baseid, template=None, parameters=imgopts)
@@ -129,10 +126,9 @@ class ImgFacBuilder(ImgBuilder):
         if target_image.status != "COMPLETE":
             fail_msg("Failed image status: " + target_image.status)
 
-        print target_image.identifier
         # Now doing the OVA
 
-        print "Creating OVA for {0}".format(imagetype)
+        log("Creating OVA for {0}".format(imagetype))
 
         bdi = BuildDispatcher()
         if imagetype == 'vagrant-virtualbox' :
@@ -196,7 +192,7 @@ class AbstractImageFactoryTask(TaskBase):
 
         if cfg.has_option("libvirt","memory"):
             if int(cfg.get("libvirt","memory")) < 2048:
-                print "Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048"
+                log("Your current oz configuration specifies a memory amount of less than 2048 which can lead to possible image creation failures. Overriding temporarily to 2048")
                 self.addozoverride('libvirt', 'memory', 2048)
 
         else:
@@ -206,7 +202,7 @@ class AbstractImageFactoryTask(TaskBase):
         # Two cpus is prefered for producer/consumer ops
         self.addozoverride('libvirt', 'cpus', '2')
 
-        print "Oz overrides: {0}".format(self.ozoverrides)
+        log("Oz overrides: {0}".format(self.ozoverrides))
 
     def formatKS(self, ksfile):
         ks_basename = os.path.basename(ksfile)
@@ -246,7 +242,6 @@ class AbstractImageFactoryTask(TaskBase):
             substitutions['OSTREE_LOCATION'] = ostree_location
 
         for subname, subval in substitutions.iteritems():
-            print subname, subval
             ksdata = ksdata.replace('@%s@' % (subname, ), subval)
         return ksdata
 
@@ -285,7 +280,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             trivhttp = TrivialHTTP()
             trivhttp.start(self.ostree_repo)
             self.httpd_port = str(trivhttp.http_port)
-            print "trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid)
+            log("trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid))
         else:
             httpd_port = self.ostree_port
 
@@ -297,7 +292,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
                             "generate_icicle": False,
                             "oz_overrides": json.dumps(self.ozoverrides)
                           }
-            print "Starting build"
+            log("Starting build")
             image = self.builder.build(template=open(self._tdl).read(), parameters=parameters)
 
             # For debug, you can comment out the above and enable the code below
@@ -312,27 +307,24 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             # Copy the qcow2 file to the outputdir
             outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
             shutil.copyfile(image.data, outputname)
-            print "Created: {0}".format(outputname)
+            log("Created: {0}".format(outputname))
 
             if 'raw' in imageouttypes:
-                print "Processing image from qcow2 to raw"
-                print image.data
+                log("Processing image from qcow2 to raw")
                 outputname = os.path.join(imageoutputdir, '%s.raw' % (self.os_nr))
-                print outputname
 
                 qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
                 run_sync(qemucmd)
                 imageouttypes.pop(imageouttypes.index("raw"))
-                print "Created: {0}".format(outputname)
+                log("Created: {0}".format(outputname))
 
             if 'hyperv' in imageouttypes:
-                print image.data
                 outputname = os.path.join(imageoutputdir, '%s-hyperv.vhd' % (self.os_nr))
                 # We can only create a gen1 hyperv image with no ova right now
                 qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', image.data, outputname]
                 run_sync(qemucmd)
                 imageouttypes.pop(imageouttypes.index("hyperv"))
-                print "Created: {0}".format(outputname)
+                log("Created: {0}".format(outputname))
 
             for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
                 self.generateOVA(imagetype, "ova", image)
@@ -365,13 +357,13 @@ class ImageFactoryTask(AbstractImageFactoryTask):
 
 
     def generateOVA(self, imagetype, fileext, image):
-        print "Creating {0} image".format(imagetype)
+        log("Creating {0} image".format(imagetype))
         # Imgfac will ensure proper qemu type is used
         target_image = self.builder.buildimagetype(imagetype, image.identifier)
         infile = target_image.data
         outfile = os.path.join(self._imageoutputdir, '%s-%s.%s' % (self._name, imagetype, fileext))
         shutil.copyfile(infile, outfile)
-        print "Created: {0}".format(outfile)
+        log("Created: {0}".format(outfile))
 
 
     def returnCommon(self, list1, list2):
@@ -389,7 +381,6 @@ def getDefaultIP(hostnet=None):
     will look for one named default.
     """
     conn=libvirt.open()
-    print hostnet
 
     numnets = int(conn.numOfNetworks())
 
@@ -423,7 +414,7 @@ def parseimagetypes(imagetypes):
     # Check that input types are valid
     for i in imagetypes:
         if i not in default_image_types:
-            print "{0} is not a valid image type.  The valid types are {1}".format(i, default_image_types)
+            log("{0} is not a valid image type.  The valid types are {1}".format(i, default_image_types))
             exit(1) 
 
     return imagetypes
