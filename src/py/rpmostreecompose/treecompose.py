@@ -125,7 +125,7 @@ class Treecompose(TaskBase):
                     pass
                 elif int(tv[3]) < lv[3]:
                     fail_msg("<cve> of version is getting older.")
-            log("** Building Version:", self.tree_version)
+            log("** Building Version: " + self.tree_version)
             rpmostreecmd.append('--add-metadata-string=version=' + self.tree_version)
 
         rpmostreecachedir = self.rpmostree_cache_dir
