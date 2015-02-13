@@ -85,6 +85,7 @@ pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/utils.py \
 	src/py/rpmostreecompose/treecompose.py \
 	src/py/rpmostreecompose/imagefactory.py \
+	src/py/rpmostreecompose/docker_image.py \
 	src/py/rpmostreecompose/installer.py \
 	src/py/rpmostreecompose/versioneddir.py \
 	src/py/rpmostreecompose/taskrunner.py \
