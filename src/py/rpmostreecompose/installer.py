@@ -44,15 +44,18 @@ class InstallerTask(TaskBase):
         fj = open(flatjson)
         fjparams = json.load(fj)
         repos = ""
+        repoids = []
         for repo in fjparams['repos']:
             repofile = os.path.join(getattr(self, 'configdir'), repo + ".repo")
             repos = repos + open(repofile).read()
             repos = repos + "enabled=1"
             repos = repos + "\n"
+            repoids.append(repo)
         if self.lorax_additional_repos:
             for i,repourl in enumerate(self.lorax_additional_repos.split(',')):
                 repos += "[lorax-repo-{0}]\nbaseurl={1}\nenabled=1\ngpgcheck=0\n".format(i, repourl)
-        return repos
+                repoids.append('lorax-repo-{0}'.format(i))
+        return repoids,repos
 
     def template_xml(self, repos, tmplfilename):
         tree = ET.parse(tmplfilename)
@@ -99,6 +102,26 @@ EOF
         return util_ks
 
     def _buildDockerImage(self, docker_image_name):
+        repoids, repos = self.getrepos(self.jsonfilename)
+        log("Using lorax.repo:\n" + repos)
+        self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
+
+        packages = ['lorax', 'rpm-ostree', 'ostree']
+
+        docker_image_basename = docker_image_name + '-base'
+
+        docker_builder_argv = ['rpm-ostree-toolbox', 'docker-image',
+                               '--minimize=docs',
+                               '--minimize=langs',
+                               '--reposdir', self.workdir,
+                               '--name', docker_image_basename]
+        for r in repoids:
+            docker_builder_argv.append('--enablerepo=' + r)
+
+        docker_builder_argv.extend(packages)
+                               
+        run_sync(docker_builder_argv)
+
         lorax_repos = []
         if self.lorax_additional_repos:
             if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
@@ -143,20 +166,13 @@ exec {0}
 """.format(" ".join(map(GLib.shell_quote, lorax_cmd)))
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.sh"), lorax_shell)
 
-        docker_os = getattr(self, 'docker_os_name')
-
-        docker_subs = {'DOCKER_OS': docker_os}
+        docker_subs = {'DOCKER_OS': docker_image_basename}
         docker_file = """
 FROM @DOCKER_OS@
-ADD lorax.repo /etc/yum.repos.d/
 ADD lorax.tmpl /root/lorax.tmpl.in
 ADD lorax.sh /root/
 RUN mkdir /out
 RUN chmod u+x /root/lorax.sh
-RUN yum -y update
-RUN yum -y swap fakesystemd systemd
-RUN yum -y install ostree lorax
-RUN yum -y clean all
 CMD ["/bin/sh", "/root/lorax.sh"]
         """
 
@@ -167,12 +183,12 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         # Docker build
         db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
-        run_sync(db_cmd)
+        child_env = dict(os.environ)
+        if 'http_proxy' in child_env:
+            del child_env['http_proxy']
+        run_sync(db_cmd, env=child_env)
 
     def createContainer(self, installer_outputdir, post=None):
-        repos = self.getrepos(self.jsonfilename)
-        log("Using lorax.repo:\n" + repos)
-        self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
 
         # Yeah, this is pretty awful.
@@ -197,6 +213,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          'OS_VER': self.release
                          }
 
+        # Test connectivity to trivial-httpd before we do the full run
+        # I'm seeing some issues where it fails sometimes, and this will help
+        # speed up debugging.
+        run_sync(['curl', 'http://' + httpd_url + ':' + httpd_port])
+
         for subname, subval in substitutions.iteritems():
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
@@ -220,7 +241,10 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                   '-v', '{0}:{1}'.format(installer_outputdir, '/out'),
                   docker_image_name]
 
-        run_sync(dr_cmd)
+        child_env = dict(os.environ)
+        if 'http_proxy' in child_env:
+            del child_env['http_proxy']
+        run_sync(dr_cmd, env=child_env)
 
         if not self.ostree_repo_is_remote:
             trivhttp.stop()
@@ -243,7 +267,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
     def create(self, installer_outputdir, args, cmd, profile, post=None):
         imgfunc = AbstractImageFactoryTask(args, cmd, profile)
-        repos = self.getrepos(self.jsonfilename)
+        n_repos, repos = self.getrepos(self.jsonfilename)
         util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
         lorax_repos = []
         if self.lorax_additional_repos:
