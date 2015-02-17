@@ -213,6 +213,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          'OS_VER': self.release
                          }
 
+        # Test connectivity to trivial-httpd before we do the full run
+        # I'm seeing some issues where it fails sometimes, and this will help
+        # speed up debugging.
+        run_sync(['curl', 'http://' + httpd_url + ':' + httpd_port])
+
         for subname, subval in substitutions.iteritems():
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
