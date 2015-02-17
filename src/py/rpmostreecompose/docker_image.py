@@ -54,6 +54,7 @@ def main(cmd):
     parser.add_argument('--reposdir', required=True, default=None, type=str, help='Path to directory with yum .repo files')
     parser.add_argument('--enablerepo', required=True, default=[], action='append', help='Enable a repository')
     parser.add_argument('--minimize', action='append', default=[], help='Control minimization; known types: docs, langs"')
+    parser.add_argument('--releasever', action='store', default=None, help='Set "$releasever" URL variable')
     parser.add_argument('--tmpdir', action='store', help='Path to temporary directory')
     parser.add_argument('--name', required=True, action='store', help='Name for docker image')
     parser.add_argument('packages', nargs='+', help='Package name')
@@ -74,6 +75,9 @@ def main(cmd):
                 fail_msg("Unknown minimize flag: " + val)
         for val in args.enablerepo:
             yum_argv.append('--enablerepo=' + val)
+
+        if args.releasever:
+            yum_argv.append('--setopt=releasever=' + args.releasever)
 
         yum_argv.append('install')
         yum_argv.extend(args.packages)
