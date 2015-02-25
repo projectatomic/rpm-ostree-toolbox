@@ -205,13 +205,31 @@ class AbstractImageFactoryTask(TaskBase):
         log("Oz overrides: {0}".format(self.ozoverrides))
 
     def formatKS(self, ksfile):
+        ksfile = os.path.abspath(ksfile)
         ks_basename = os.path.basename(ksfile)
-        flattened_ks = os.path.join(self.workdir, ks_basename)
-
         # FIXME - eventually stop hardcoding this via some mapping
-        kickstart_version = 'RHEL7'
-        run_sync(['ksflatten', '--version', kickstart_version,
-                  '-c', ksfile, '-o', flattened_ks])
+        if ks_basename.find('fedora') >= 0:
+            kickstart_version = self.release.upper()
+        else:
+            kickstart_version = 'RHEL7'
+
+        dockerfile = """CMD ["ksflatten", "--version", "{0}", "-c", "/in/{1}", "-o", "/out/{1}"]""".format(kickstart_version, ks_basename)
+        contextdir = os.path.join(self.workdir, 'tmp-kickstart')
+        if os.path.isdir(contextdir): shutil.rmtree(contextdir)
+        os.mkdir(contextdir)
+        ksworker_name = self.buildDockerWorker('kickstart', ['pykickstart'], dockerfile, contextdir)
+
+        cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=none',
+               '-v', '{0}:{1}:ro'.format(os.path.dirname(ksfile), '/in'),
+               '-v', '{0}:{1}'.format(contextdir, '/out'),
+               ksworker_name]
+        child_env = dict(os.environ)
+        if 'http_proxy' in child_env:
+            del child_env['http_proxy']
+        run_sync(cmd, env=child_env)
+
+        flattened_ks = self.workdir + '/' + ks_basename
+        os.rename(contextdir + '/' + ks_basename, flattened_ks)
 
         # TODO: Pull kickstart from separate git repo
         ksdata = open(flattened_ks).read()
