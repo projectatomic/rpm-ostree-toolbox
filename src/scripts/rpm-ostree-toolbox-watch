@@ -278,6 +278,12 @@ END_LOG_HEADER
         }
     }
 
+    my $postdir = '/etc/rpm-ostree-toolbox/treecompose.post.d';
+    if (-d $postdir) {
+	my @args = ("run-parts", $postdir);
+	system(@args) == 0 || print "warning: run-parts $postdir exited: $!" ;
+    }
+
     printf <<"END_LOG_TAIL", gmtime->datetime, $msg;
 
 # %sZ FINISHED: %s
