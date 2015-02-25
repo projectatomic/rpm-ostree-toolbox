@@ -30,7 +30,7 @@ import shutil
 
 from .utils import fail_msg, run_sync, TrivialHTTP, log
 
-from gi.repository import GLib
+from gi.repository import GLib # pylint: disable=no-name-in-module
 
 def clean_dir_contents(path):
     if not os.path.isdir(path):

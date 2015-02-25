@@ -24,13 +24,12 @@ import argparse
 import shutil
 import subprocess
 import distutils.spawn
-from gi.repository import Gio, OSTree, GLib
+from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import iniparse
 import ConfigParser  # for errors
 from .utils import fail_msg, log
 import urlparse
 import urllib2
-from gi.repository import GLib
 
 def _merge_lists(x, y):
     try:
@@ -65,6 +64,7 @@ class TaskBase(object):
     def __init__(self, args, cmd, profile=None):
         self._repo = None
         self.args = args
+
         configfile = args.config
         assert profile is not None
         defaults = { 'workdir': None,
@@ -86,6 +86,9 @@ class TaskBase(object):
 
         if os.path.isdir(self.outputdir + "/.git"):
             fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
+
+        self.workdir = None
+        self.tree_file = None
 
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))

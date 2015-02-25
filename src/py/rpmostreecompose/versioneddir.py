@@ -21,7 +21,7 @@ import os
 import re
 import sys
 
-from gi.repository import GLib
+from gi.repository import GLib  # pylint: disable=no-name-in-module
 
 class VersionedDir(object):
 
