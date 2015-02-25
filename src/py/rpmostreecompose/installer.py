@@ -35,10 +35,13 @@ from imgfac.PersistentImageManager import PersistentImageManager
 from xml.etree import ElementTree as ET
 from .imagefactory import getDefaultIP
 
-from gi.repository import GLib
+from gi.repository import GLib  # pylint: disable=no-name-in-module
 
 class InstallerTask(TaskBase):
     container_id = ""
+
+    def __init__(self):
+        self.tdl = None
 
     def getrepos(self, flatjson):
         fj = open(flatjson)

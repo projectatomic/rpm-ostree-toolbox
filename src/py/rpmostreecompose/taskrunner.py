@@ -24,7 +24,7 @@ import argparse
 import stat
 import sys
 
-from gi.repository import GLib,Gio,GSystem
+from gi.repository import GLib,Gio,GSystem  # pylint: disable=no-name-in-module
 
 from .versioneddir import VersionedDir
 

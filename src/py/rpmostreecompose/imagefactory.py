@@ -24,7 +24,7 @@ import argparse
 import shutil
 import subprocess
 import distutils.spawn
-from gi.repository import Gio, OSTree, GLib
+from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import ConfigParser
 import libvirt
 import xml.etree.ElementTree as ET
@@ -209,10 +209,7 @@ class AbstractImageFactoryTask(TaskBase):
         flattened_ks = os.path.join(self.workdir, ks_basename)
 
         # FIXME - eventually stop hardcoding this via some mapping
-        if ks_basename.find('fedora') >= 0:
-            kickstart_version = 'F21'
-        else:
-            kickstart_version = 'RHEL7'
+        kickstart_version = 'RHEL7'
         run_sync(['ksflatten', '--version', kickstart_version,
                   '-c', ksfile, '-o', flattened_ks])
 

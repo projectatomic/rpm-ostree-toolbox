@@ -24,13 +24,12 @@ import argparse
 import shutil
 import subprocess
 import distutils.spawn
-from gi.repository import Gio, OSTree, GLib
+from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import iniparse
 import ConfigParser  # for errors
 from .utils import fail_msg, log
 import urlparse
 import urllib2
-from gi.repository import GLib
 
 def _merge_lists(x, y):
     try:
@@ -63,8 +62,31 @@ class TaskBase(object):
 
 
     def __init__(self, args, cmd, profile=None):
+        self.workdir = None
+        self.tree_file = None
+        self.rpmostree_cache_dir = None
+        self.pkgdatadir = None
+        self.os_name = None
+        self.os_pretty_name = None
+        self.tree_name = None
+        self.tree_file = None
+        self.arch = None
+        self.release = None
+        self.ref = None
+        self.yum_baseurl = None
+        self.lorax_additional_repos = None
+        self.is_final = None
+        self.lorax_exclude_packages = None
+        self.lorax_include_packages = None
+        self.local_overrides = None
+        self.http_proxy = None
+        self.selinux = None
+        self.configdir = None
+        self.docker_os_name = None
+
         self._repo = None
         self.args = args
+
         configfile = args.config
         assert profile is not None
         defaults = { 'workdir': None,
@@ -158,7 +180,6 @@ class TaskBase(object):
                 setattr(self, 'kickstart', args.kickstart)
             else:
                 fail_msg("No kickstart for creating a live image was passed with -k")
-
 
         # Set tdl from args, else fallback to default
         if cmd in ["imagefactory", "liveimage"] or ( cmd in ['installer'] and args.virt ):

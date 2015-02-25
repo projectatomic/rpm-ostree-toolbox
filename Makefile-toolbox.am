@@ -106,3 +106,5 @@ install-varlib-hook:
 	mkdir -p $(DESTDIR)$(localstatedir)/lib/rpm-ostree-toolbox
 
 INSTALL_DATA_HOOKS += install-varlib-hook
+
+TESTS += t/pylint.sh

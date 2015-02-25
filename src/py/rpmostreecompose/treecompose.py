@@ -24,7 +24,7 @@ import argparse
 import shutil
 import subprocess
 import distutils.spawn
-from gi.repository import Gio, OSTree, GLib
+from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import iniparse
 
 from .taskbase import TaskBase
