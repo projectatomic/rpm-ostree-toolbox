@@ -40,3 +40,6 @@ include Makefile-libtoolbox.am
 include Makefile-toolbox.am
 include src/sysconfig/Makefile.am
 include src/systemd/Makefile.am
+
+pylint:
+	env PYLINT_FULL=true srcdir=$(srcdir) $(srcdir)/t/pylint.sh 

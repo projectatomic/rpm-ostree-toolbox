@@ -62,6 +62,28 @@ class TaskBase(object):
 
 
     def __init__(self, args, cmd, profile=None):
+        self.workdir = None
+        self.tree_file = None
+        self.rpmostree_cache_dir = None
+        self.pkgdatadir = None
+        self.os_name = None
+        self.os_pretty_name = None
+        self.tree_name = None
+        self.tree_file = None
+        self.arch = None
+        self.release = None
+        self.ref = None
+        self.yum_baseurl = None
+        self.lorax_additional_repos = None
+        self.is_final = None
+        self.lorax_exclude_packages = None
+        self.lorax_include_packages = None
+        self.local_overrides = None
+        self.http_proxy = None
+        self.selinux = None
+        self.configdir = None
+        self.docker_os_name = None
+
         self._repo = None
         self.args = args
 
@@ -86,9 +108,6 @@ class TaskBase(object):
 
         if os.path.isdir(self.outputdir + "/.git"):
             fail_msg("Found .git in the current directory; you most likely don't want to build in source directory")
-
-        self.workdir = None
-        self.tree_file = None
 
         for attr in self.ATTRS:
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
@@ -161,7 +180,6 @@ class TaskBase(object):
                 setattr(self, 'kickstart', args.kickstart)
             else:
                 fail_msg("No kickstart for creating a live image was passed with -k")
-
 
         # Set tdl from args, else fallback to default
         if cmd in ["imagefactory", "liveimage"] or ( cmd in ['installer'] and args.virt ):
