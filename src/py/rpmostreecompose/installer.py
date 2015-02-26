@@ -40,7 +40,8 @@ from gi.repository import GLib  # pylint: disable=no-name-in-module
 class InstallerTask(TaskBase):
     container_id = ""
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        TaskBase.__init__(self, *args, **kwargs)
         self.tdl = None
 
     def getrepos(self, flatjson):
