@@ -27,7 +27,7 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import iniparse
 import ConfigParser  # for errors
-from .utils import fail_msg, log
+from .utils import fail_msg, log, run_sync
 import urlparse
 import urllib2
 
@@ -370,6 +370,73 @@ class TaskBase(object):
     def cleanup(self):
         if self.workdir_is_tmp:
             shutil.rmtree(self.workdir)
+
+    def getrepos(self, flatjson):
+        fj = open(self.jsonfilename)
+        fjparams = json.load(fj)
+        repos = ""
+        repoids = []
+        for repo in fjparams['repos']:
+            repofile = os.path.join(getattr(self, 'configdir'), repo + ".repo")
+            repos = repos + open(repofile).read()
+            repos = repos + "enabled=1"
+            repos = repos + "\n"
+            repoids.append(repo)
+        if self.lorax_additional_repos:
+            for i,repourl in enumerate(self.lorax_additional_repos.split(',')):
+                repos += "[lorax-repo-{0}]\nbaseurl={1}\nenabled=1\ngpgcheck=0\n".format(i, repourl)
+                repoids.append('lorax-repo-{0}'.format(i))
+        return repoids,repos
+
+    def generateDockerName(self, name, packages, suffix):
+        return 'rpm-ostree-toolbox/' + self.os_name + '-' + self.release + '-' + name + '-' + suffix
+
+    def buildDockerWorkerBaseImage(self, name, packages):
+        """
+        Generate a local Docker image named @name containing packages
+        @packages.  This won't be runnable directly, you probably want
+        to use buildDockerWorker().
+        """
+
+        fullname = self.generateDockerName(name, packages, 'base')
+
+        repoids, repos = self.getrepos(self.jsonfilename)
+        log("Using lorax.repo:\n" + repos)
+        with open(self.workdir + '/lorax.repo', 'w') as f:
+            f.write(repos)
+
+        docker_builder_argv = ['rpm-ostree-toolbox', 'docker-image',
+                               '--minimize=docs',
+                               '--minimize=langs',
+                               '--reposdir', self.workdir,
+                               '--name', fullname]
+        for r in repoids:
+            docker_builder_argv.append('--enablerepo=' + r)
+
+        docker_builder_argv.extend(packages)
+                               
+        run_sync(docker_builder_argv)
+
+        return fullname
+
+    def buildDockerWorker(self, name, packages, dockerfile, contextdir=None):
+        """
+        Generate a local Docker image using @packages as a base and
+        @contextdir for the Dockerfile.
+        """
+        basename = self.buildDockerWorkerBaseImage(name, packages)
+        fullname = self.generateDockerName(name, packages, 'app')
+        if contextdir is None:
+            contextdir = os.path.join(self.workdir, 'tmp-' + name)
+        with open(contextdir + '/Dockerfile', 'w') as f:
+            f.write("FROM " + basename + '\n' + dockerfile)
+        # Docker build
+        db_cmd = ['docker', 'build', '-t', fullname, contextdir]
+        child_env = dict(os.environ)
+        if 'http_proxy' in child_env:
+            del child_env['http_proxy']
+        run_sync(db_cmd, env=child_env)
+        return fullname
 
     def hasValue(self, configkey, settings, profile):
         """

@@ -44,23 +44,6 @@ class InstallerTask(TaskBase):
         TaskBase.__init__(self, *args, **kwargs)
         self.tdl = None
 
-    def getrepos(self, flatjson):
-        fj = open(flatjson)
-        fjparams = json.load(fj)
-        repos = ""
-        repoids = []
-        for repo in fjparams['repos']:
-            repofile = os.path.join(getattr(self, 'configdir'), repo + ".repo")
-            repos = repos + open(repofile).read()
-            repos = repos + "enabled=1"
-            repos = repos + "\n"
-            repoids.append(repo)
-        if self.lorax_additional_repos:
-            for i,repourl in enumerate(self.lorax_additional_repos.split(',')):
-                repos += "[lorax-repo-{0}]\nbaseurl={1}\nenabled=1\ngpgcheck=0\n".format(i, repourl)
-                repoids.append('lorax-repo-{0}'.format(i))
-        return repoids,repos
-
     def template_xml(self, repos, tmplfilename):
         tree = ET.parse(tmplfilename)
         root = tree.getroot()
@@ -106,25 +89,7 @@ EOF
         return util_ks
 
     def _buildDockerImage(self, docker_image_name):
-        repoids, repos = self.getrepos(self.jsonfilename)
-        log("Using lorax.repo:\n" + repos)
-        self.dumpTempMeta(os.path.join(self.workdir, "lorax.repo"), repos)
-
-        packages = ['lorax', 'rpm-ostree', 'ostree']
-
-        docker_image_basename = docker_image_name + '-base'
-
-        docker_builder_argv = ['rpm-ostree-toolbox', 'docker-image',
-                               '--minimize=docs',
-                               '--minimize=langs',
-                               '--reposdir', self.workdir,
-                               '--name', docker_image_basename]
-        for r in repoids:
-            docker_builder_argv.append('--enablerepo=' + r)
-
-        docker_builder_argv.extend(packages)
-                               
-        run_sync(docker_builder_argv)
+        docker_image_basename = self.buildDockerWorkerBaseImage('lorax', ['lorax', 'rpm-ostree', 'ostree'])
 
         lorax_repos = []
         if self.lorax_additional_repos:
