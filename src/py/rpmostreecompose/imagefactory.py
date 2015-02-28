@@ -319,9 +319,10 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             # pim = PersistentImageManager.default_manager()
             # image = pim.image_with_id(myuuid)
 
-            # Copy the qcow2 file to the outputdir
+            # Copy the qcow2 file to the outputdir, and gzip it
             outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
             shutil.copyfile(image.data, outputname)
+            run_sync(['gzip', outputname])
             log("Created: {0}".format(outputname))
 
             if 'raw' in imageouttypes:
