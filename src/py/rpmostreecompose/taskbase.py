@@ -113,7 +113,6 @@ class TaskBase(object):
             val = self.getConfigValue(attr, settings, profile, defValue=defaults.get(attr))
             setattr(self, attr, val)
 
-        self.ref = getattr(self, 'ref')
         # Checking ostreerepo
         self.ostree_port = None
         self.ostree_repo_is_remote = False
@@ -145,10 +144,10 @@ class TaskBase(object):
                 #     fail_msg("The ref {0} cannot be found in in the URL {1}".format(getattr(self,'ref'), self.ostree_repo))
         else:
             self.ostree_repo = self.outputdir + '/repo'
-        release = getattr(self, 'release')
+        release = self.release
         # Check for configdir in attrs, else fallback to dir holding config
-        if getattr(self, 'configdir') is None:
-            setattr(self, 'configdir', os.path.dirname(os.path.realpath(configfile)))
+        if self.configdir is None:
+            self.configdir = os.path.dirname(os.path.realpath(configfile))
 
         if self.tree_file is None:
             fail_msg("No tree file was provided")
@@ -160,43 +159,41 @@ class TaskBase(object):
         if 'virtnetwork' in args:
             self.virtnetwork = args.virtnetwork
 
-        self.os_nr = "{0}-{1}".format(getattr(self, 'os_name'), getattr(self, 'release'))
+        self.os_nr = "{0}-{1}".format(self.os_name, self.release)
 
         # Set kickstart file from args, else fallback to default
         if cmd in ["imagefactory"]:
             if 'kickstart' in args and args.kickstart is not None:
-                setattr(self, 'kickstart', args.kickstart)
+                self.kickstart = args.kickstart
             else:
                 defks = "{0}.ks".format(self.os_nr)
 
-                setattr(self, 'kickstart', '{0}'.format(os.path.join(
-                    getattr(self, 'configdir'), defks)))
-                if not os.path.exists(getattr(self, 'kickstart')):
-                    fail_msg("No kickstart was passed with -k and {0} does not exist".format(getattr(self, 'kickstart')))
+                self.kickstart = os.path.join(self.configdir, defks)
+                if not os.path.exists(self.kickstart):
+                    fail_msg("No kickstart was passed with -k and {0} does not exist".format(self.kickstart))
 
         # Set KS for liveimage
         if cmd in ["liveimage"]:
             if 'kickstart' in args and args.kickstart is not None:
-                setattr(self, 'kickstart', args.kickstart)
+                self.kickstart = args.kickstart
             else:
                 fail_msg("No kickstart for creating a live image was passed with -k")
 
         # Set tdl from args, else fallback to default
         if cmd in ["imagefactory", "liveimage"] or ( cmd in ['installer'] and args.virt ):
             if 'tdl' in args and args.tdl is not None:
-                setattr(self, 'tdl', args.tdl)
+                self.tdl = args.tdl
             else:
                 deftdl = "{0}.tdl".format(self.os_nr)
-                setattr(self, 'tdl', '{0}'.format(os.path.join(
-                    getattr(self, 'configdir'), deftdl)))
-                if not os.path.exists(getattr(self, 'tdl')):
-                    fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(getattr(self, 'tdl')))
+                self.tdl = os.path.join(self.configdir, deftdl)
+                if not os.path.exists(self.tdl):
+                    fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(self.tdl))
 
         # Set name from args, else fallback to default
         if 'name' in args and args.name is not None:
-            setattr(self, 'name', args.name)
+            self.name = args.name
         else:
-            setattr(self, 'name', '{0}'.format(self.os_nr))
+            self.name = self.os_nr
 
         if cmd == "installer":
             if not self.yum_baseurl and args.yum_baseurl == None:
@@ -377,7 +374,7 @@ class TaskBase(object):
         repos = ""
         repoids = []
         for repo in fjparams['repos']:
-            repofile = os.path.join(getattr(self, 'configdir'), repo + ".repo")
+            repofile = os.path.join(self.configdir, repo + ".repo")
             repos = repos + open(repofile).read()
             repos = repos + "enabled=1"
             repos = repos + "\n"
