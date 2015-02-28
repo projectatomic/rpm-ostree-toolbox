@@ -465,10 +465,10 @@ def main(cmd):
     verbosemode = args.verbose
     try:
         composer.create(imageoutputdir=args.outputdir,
-                        name=getattr(composer, 'name'),
-                        ksfile=getattr(composer, 'kickstart'),
+                        name=composer.name,
+                        ksfile=composer.kickstart,
                         vkickstart=args.vkickstart,
-                        tdl=getattr(composer, 'tdl'),
+                        tdl=composer.tdl,
                         imageouttypes=imagetypes
                         )
     finally:

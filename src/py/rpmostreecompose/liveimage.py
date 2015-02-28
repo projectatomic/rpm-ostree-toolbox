@@ -34,7 +34,6 @@ class CreateLiveTask(AbstractImageFactoryTask):
         self._args = args
         self._cmd = cmd
         self._profile = profile
-        self._tdl = getattr(self, 'tdl')
 
     def createLiveDisk(self):
         log("Starting build")
@@ -51,7 +50,7 @@ class CreateLiveTask(AbstractImageFactoryTask):
                         "generate_icicle": False,
                         "oz_overrides": json.dumps(self.ozoverrides)
                         }
-            image = imgfacbuild.build(template=open(self._tdl).read(), parameters=parameters)
+            image = imgfacbuild.build(template=open(self.tdl).read(), parameters=parameters)
             self._inputdiskpath = image.data
             log("Created input disk: {0}".format(image.data))
 
@@ -59,13 +58,13 @@ class CreateLiveTask(AbstractImageFactoryTask):
 
     def lmcContainer(self, diskimage):
         inst = InstallerTask(self._args, self._cmd, self._profile)
-        docker_os = getattr(self, 'docker_os_name')
-        docker_image_name = '{0}/rpmostree-toolbox-lmc'.format(getattr(self, 'docker_os_name'))
+        docker_os = self.docker_os_name
+        docker_image_name = '{0}/rpmostree-toolbox-lmc'.format(docker_os)
 
         # If a yum_baseurl is defined, add it to the yum repos
         # in the container
 
-        yb_url = getattr(self, 'yum_baseurl') if self._args.yum_baseurl is None else self._args.yum_baseurl
+        yb_url = self.yum_baseurl if self._args.yum_baseurl is None else self._args.yum_baseurl
         if yb_url is "":
             yb_url = None
 
