@@ -93,28 +93,28 @@ EOF
 
         lorax_repos = []
         if self.lorax_additional_repos:
-            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
-                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
+            if self.yum_baseurl not in self.lorax_additional_repos:
+                self.lorax_additional_repos += ", {0}".format(self.yum_baseurl)
             for repourl in self.lorax_additional_repos.split(','):
                 lorax_repos.extend(['-s', repourl.strip()])
         else:
-            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
+            lorax_repos.extend(['-s', self.yum_baseurl])
 
-        os_v = getattr(self, 'release')
+        os_v = self.release
         lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container',
                      '-p', self.os_pretty_name, '-v', os_v, '-r', os_v]
         http_proxy = os.environ.get('http_proxy')
         if http_proxy:
             lorax_cmd.extend(['--proxy', http_proxy])
-        if bool(getattr(self, 'is_final')):
+        if bool(self.is_final):
             lorax_cmd.append('--isfinal')
         lorax_cmd.extend(lorax_repos)
-        excludes = getattr(self, 'lorax_exclude_packages')
+        excludes = self.lorax_exclude_packages
         if excludes is not None:
             for exclude in excludes.split(','):
                 if exclude == '': continue
                 lorax_cmd.extend(['-e', exclude.strip()])
-        includes = getattr(self, 'lorax_include_packages')
+        includes = self.lorax_include_packages
         if includes is not None:
             for include in includes.split(','):
                 if include == '': continue
@@ -192,8 +192,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
 
-        os_pretty_name = os_pretty_name = '"{0}"'.format(getattr(self, 'os_pretty_name'))
-        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(getattr(self, 'docker_os_name'))
+        os_pretty_name = os_pretty_name = '"{0}"'.format(self.os_pretty_name)
+        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(self.docker_os_name)
         if not ('docker-lorax' in self.args.skip_subtask):
             self._buildDockerImage(docker_image_name)
         else:
@@ -240,12 +240,12 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
         lorax_repos = []
         if self.lorax_additional_repos:
-            if getattr(self, 'yum_baseurl') not in self.lorax_additional_repos:
-                self.lorax_additional_repos += ", {0}".format(getattr(self, 'yum_baseurl'))
+            if self.yum_baseurl not in self.lorax_additional_repos:
+                self.lorax_additional_repos += ", {0}".format(self.yum_baseurl)
             for repourl in self.lorax_additional_repos.split(','):
                 lorax_repos.extend(['-s', repourl.strip()])
         else:
-            lorax_repos.extend(['-s', getattr(self, 'yum_baseurl')])
+            lorax_repos.extend(['-s', self.yum_baseurl])
 
         port_file_path = self.workdir + '/repo-port'
 
