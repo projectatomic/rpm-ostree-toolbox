@@ -40,7 +40,7 @@ def log(msg):
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-class TrivialHTTP():
+class TrivialHTTP(object):
     """ This class is used to control ostree's trivial-httpd which is used
     by the installer and imagefactory rpm-ostree-toolbox subcommands to get
     content from the from the host to the builds
