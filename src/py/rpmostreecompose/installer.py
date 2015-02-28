@@ -44,49 +44,11 @@ class InstallerTask(TaskBase):
         TaskBase.__init__(self, *args, **kwargs)
         self.tdl = None
 
-    def template_xml(self, repos, tmplfilename):
-        tree = ET.parse(tmplfilename)
-        root = tree.getroot()
-        files = root.find('files')
-        yumrepos = ET.SubElement(files, "file", {'name': '/etc/yum.repos.d/atomic.repo'})
-        yumrepos.text = repos
-        return ET.tostring(root)
-
     def dumpTempMeta(self, fullpathname, tmpstr):
         with open(fullpathname, 'w') as f:
             f.write(tmpstr)
         log("Wrote {0}".format(fullpathname))
         return fullpathname
-
-    def createUtilKS(self, tdl):
-        util_post = """
-%post
-# For cloud images, 'eth0' _is_ the predictable device name, since
-# we don't want to be tied to specific virtual (!) hardware
-rm -f /etc/udev/rules.d/70*
-ln -s /dev/null /etc/udev/rules.d/80-net-setup-link.rules
-
-# simple eth0 config, again not hard-coded to the build hardware
-cat > /etc/sysconfig/network-scripts/ifcfg-eth0 << EOF
-DEVICE="eth0"
-BOOTPROTO="dhcp"
-ONBOOT="yes"
-TYPE="Ethernet"
-PERSISTENT_DHCLIENT="yes"
-EOF
-%end
-"""
-        util_tdl = oz.TDL.TDL(open(tdl).read())
-        oz_class = oz.GuestFactory.guest_factory(util_tdl, None, None)
-        util_ksname = oz_class.get_auto_path()
-        util_ks = open(util_ksname).read()
-        util_ks = util_ks + util_post
-        util_ksfilename = os.path.join(self.workdir, os.path.basename(util_ksname.replace(".auto", ".ks")))
-
-        # Write out to tmp file in workdir
-        self.dumpTempMeta(util_ksfilename, util_ks)
-
-        return util_ks
 
     def _buildDockerImage(self, docker_image_name):
         docker_image_basename = self.buildDockerWorkerBaseImage('lorax', ['lorax', 'rpm-ostree', 'ostree'])
@@ -157,7 +119,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             del child_env['http_proxy']
         run_sync(db_cmd, env=child_env)
 
-    def createContainer(self, installer_outputdir, post=None):
+    def create(self, installer_outputdir, post=None):
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
 
         # Yeah, this is pretty awful.
@@ -234,92 +196,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                         treeout.write(line)
         os.rename(treeinfo_tmp, treeinfo)
 
-    def create(self, installer_outputdir, args, cmd, profile, post=None):
-        imgfunc = AbstractImageFactoryTask(args, cmd, profile)
-        n_repos, repos = self.getrepos(self.jsonfilename)
-        util_xml = self.template_xml(repos, os.path.join(self.pkgdatadir, 'lorax-indirection-repo.tmpl'))
-        lorax_repos = []
-        if self.lorax_additional_repos:
-            if self.yum_baseurl not in self.lorax_additional_repos:
-                self.lorax_additional_repos += ", {0}".format(self.yum_baseurl)
-            for repourl in self.lorax_additional_repos.split(','):
-                lorax_repos.extend(['-s', repourl.strip()])
-        else:
-            lorax_repos.extend(['-s', self.yum_baseurl])
-
-        port_file_path = self.workdir + '/repo-port'
-
-        if not self.ostree_repo_is_remote: 
-            # Start trivial-httpd
-            trivhttp = TrivialHTTP()
-            trivhttp.start(self.ostree_repo)
-            httpd_port = str(trivhttp.http_port)
-            log("trivial httpd port=%s, pid=%s" % (httpd_port, trivhttp.http_pid))
-        else:
-            httpd_port = str(self.httpd_port)
-        substitutions = {'OSTREE_PORT': httpd_port,
-                         'OSTREE_REF':  self.ref,
-                         'OSTREE_OSNAME':  self.os_name,
-                         'LORAX_REPOS': " ".join(lorax_repos),
-                         'OS_PRETTY': self.os_pretty_name,
-                         'OS_VER': self.release
-                         }
-        if '@OSTREE_HOSTIP@' in util_xml:
-            if not self.ostree_repo_is_remote:
-                host_ip = getDefaultIP()
-            else:
-                host_ip = self.httpd_host
-            substitutions['OSTREE_HOSTIP'] = host_ip
-
-        if '@OSTREE_PATH' in util_xml:
-            substitutions['OSTREE_PATH'] = self.httpd_path
-
-        for subname, subval in substitutions.iteritems():
-            util_xml = util_xml.replace('@%s@' % (subname, ), subval)
-
-        # Dump util_xml to workdir for logging
-        self.dumpTempMeta(os.path.join(self.workdir, "lorax.xml"), util_xml)
-        global verbosemode
-        imgfacbuild = ImgFacBuilder(verbosemode=verbosemode)
-        imgfacbuild.verbosemode = verbosemode
-        imgfunc.checkoz("qcow2")
-        util_ks = self.createUtilKS(self.tdl)
-
-        # Building of utility image
-        parameters = {"install_script": util_ks,
-                      "generate_icicle": False,
-                      "oz_overrides": json.dumps(imgfunc.ozoverrides)
-                      }
-        if self.util_uuid is None:
-            log("Starting Utility image build")
-            util_image = imgfacbuild.build(template=open(self.util_tdl).read(), parameters=parameters)
-            log("Created Utility Image: {0}".format(util_image.data))
-
-        else:
-            pim = PersistentImageManager.default_manager()
-            util_image = pim.image_with_id(self.util_uuid)
-            log("Re-using Utility Image: {0}".format(util_image.identifier))
-
-        # Now lorax
-        bd = BuildDispatcher()
-        lorax_parameters = {"results_location": "/lorout/output.tar",
-                            "utility_image": util_image.identifier,
-                            "utility_customizations": util_xml,
-                            "oz_overrides": json.dumps(imgfunc.ozoverrides)
-                            }
-        log("Building the lorax image")
-        loraxiso_builder = bd.builder_for_target_image("indirection", image_id=util_image.identifier, template=None, parameters=lorax_parameters)
-        loraxiso_image = loraxiso_builder.target_image
-        thread = loraxiso_builder.target_thread
-        thread.join()
-
-        # Extract the tarball of built images
-        log("Extracting images to {0}/images".format(installer_outputdir))
-        t = tarfile.open(loraxiso_image.data)
-        t.extractall(path=installer_outputdir)
-        if not self.ostree_repo_is_remote:
-            trivhttp.stop()
-
 # End Composer
 
 
@@ -354,9 +230,6 @@ def main(cmd):
     elif not os.path.isdir(installer_outputdir):
         fail_msg("The output directory {0} does not exist".format(installer_outputdir))
         
-    if args.virt:
-        composer.create(installer_outputdir, args, cmd, profile=args.profile, post=args.post)
-    else:
-        composer.createContainer(installer_outputdir, post=args.post)
+    composer.create(installer_outputdir, post=args.post)
 
     composer.cleanup()
