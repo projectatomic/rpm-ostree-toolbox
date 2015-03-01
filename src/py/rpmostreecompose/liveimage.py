@@ -133,7 +133,7 @@ CMD ["/bin/sh", "/root/lmc_shell.sh"]
         run_sync(['cp', '-v', '--sparse=auto', diskimage, self.image_workdir + "/lmc_input_disk"])
 
         try:
-            dr_cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=host',
+            dr_cmd = ['docker', 'run', '--rm', '--workdir', '/out', '-it', '--net=host',
                       '--privileged=true', '-v', '{0}:{1}'.format(self.image_workdir, '/out'),
                       docker_image_name]
             child_env = dict(os.environ)

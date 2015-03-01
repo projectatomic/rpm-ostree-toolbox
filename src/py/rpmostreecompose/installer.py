@@ -164,7 +164,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
-        dr_cmd = ['docker', 'run', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
+        dr_cmd = ['docker', 'run', '--rm', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
                   '-e', 'OSTREE_HOST={0}'.format(httpd_url),
                   '-e', 'OSTREE_PATH={0}'.format(self.httpd_path),
                   '--workdir', '/out', '-it', '--net=host', '--privileged=true',
