@@ -473,3 +473,50 @@ class TaskBase(object):
             return True
         else:
             return False
+
+class ImageTaskBase(TaskBase):
+    """For everything except treecompose.  Something that outputs 
+    an image blob with log files."""
+
+    def __init__(self, args, cmd, **kwargs):
+        TaskBase.__init__(self, args, cmd, **kwargs)
+        self.image_workdir = os.path.abspath(args.outputdir) + '/work'
+        self.image_content_outputdir = self.image_workdir + '/images'
+        self.image_log_outputdir = self.image_workdir + '/logs'
+
+    @staticmethod
+    def all_baseargs():
+        """All arguments for a task, plus image arguments."""
+        parser = argparse.ArgumentParser(description='Image task arguments', add_help=False)
+        parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
+        parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
+        return [TaskBase.baseargs(), parser]
+
+    def impl_create(self, **kwargs):
+        """Subclasses must implement this"""
+        raise NotImplementedError()
+ 
+    def create(self, **kwargs):
+        """Primary entrypoint for image creation.
+        """
+        exists = os.path.lexists(self.args.outputdir)
+        if self.args.overwrite and exists:
+            shutil.rmtree(self.args.outputdir)
+        elif exists:
+            fail_msg("The directory {0} already exists.".format(self.args.outputdir))
+        os.makedirs(self.image_workdir)
+
+        self.impl_create(**kwargs)
+        self._finish()
+
+    def _finish(self):
+        """Generate a SHA256SUMs file, and move the staged work/ content to
+        its final location.
+
+        """
+        run_sync(['/bin/sh', '-c', 'find .  -type f | grep -v \'.*SUMS$\' | xargs sha256sum'], cwd=self.image_content_outputdir,
+                 stdout=open(self.image_content_outputdir + '/SHA256SUMS', 'w'))
+        shutil.move(self.image_content_outputdir, self.args.outputdir)
+        shutil.move(self.image_log_outputdir, self.args.outputdir)
+        shutil.rmtree(self.image_workdir)
+        log("Complete!  Images/ and logs/ written to {0}".format(self.args.outputdir))

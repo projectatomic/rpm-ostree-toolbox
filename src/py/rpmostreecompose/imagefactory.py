@@ -38,7 +38,7 @@ from imgfac.PluginManager import PluginManager
 from imgfac.ApplicationConfiguration import ApplicationConfiguration
 import logging
 
-from .taskbase import TaskBase
+from .taskbase import ImageTaskBase
 
 from .utils import run_sync, fail_msg, TrivialHTTP, log
 
@@ -163,9 +163,9 @@ class KojiBuilder(ImgBuilder):
     def download(self):
         pass
 
-class AbstractImageFactoryTask(TaskBase):
+class AbstractImageFactoryTask(ImageTaskBase):
     def __init__(self, *args, **kwargs):
-        TaskBase.__init__(self, *args, **kwargs)
+        ImageTaskBase.__init__(self, *args, **kwargs)
         self.ozoverrides = {}
 
     def addozoverride(self, cfgsec, key, value):
@@ -262,15 +262,13 @@ class AbstractImageFactoryTask(TaskBase):
 
 
 class ImageFactoryTask(AbstractImageFactoryTask):
-    def __init__(self, args, cmd, profile):
-        AbstractImageFactoryTask.__init__(self, args, cmd, profile)
+    def __init__(self, args, cmd, profile=None):
+        AbstractImageFactoryTask.__init__(self, args, cmd, profile=profile)
 
-    def create(self, imageoutputdir, name, ksfile, vkickstart, tdl, imageouttypes):
-        #AbstractImageFactoryTask.__init__(self)
+    def impl_create(self, name, ksfile, vkickstart, tdl, imageouttypes):
         self._name = name
         self._tdl = tdl
         self._kickstart = ksfile
-        self._imageoutputdir = imageoutputdir
         self.vksfile = None
         self.vagrant = False
         if len(self.returnCommon(imageouttypes, ['vagrant-libvirt', 'vagrant-virtualbox'])) > 0:
@@ -279,7 +277,6 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             if not os.path.isfile(self.vksfile):
                 fail_msg("Unable to find the kickstart file {0} required to build vagrant images.  Consider passing --vkickstart to override.".format(self.vksfile))
         
-        os.mkdir(imageoutputdir)
 
         # FIXME : future version control related
         # [res, rev] = self.repo.resolve_rev(self.ref, False)
@@ -298,6 +295,9 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             log("trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid))
         else:
             httpd_port = self.ostree_port
+
+        os.mkdir(self.image_content_outputdir)
+        os.mkdir(self.image_log_outputdir)
 
         self.checkoz("qcow2")
         # The conditional handles the building of the images listed below
@@ -320,14 +320,14 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             # image = pim.image_with_id(myuuid)
 
             # Copy the qcow2 file to the outputdir, and gzip it
-            outputname = os.path.join(imageoutputdir, '%s.qcow2' % (self.os_nr))
+            outputname = os.path.join(self.image_content_outputdir, '%s.qcow2' % (self.os_nr))
             shutil.copyfile(image.data, outputname)
             run_sync(['gzip', outputname])
             log("Created: {0}".format(outputname))
 
             if 'raw' in imageouttypes:
                 log("Processing image from qcow2 to raw")
-                outputname = os.path.join(imageoutputdir, '%s.raw' % (self.os_nr))
+                outputname = os.path.join(self.image_content_outputdir, '%s.raw' % (self.os_nr))
 
                 qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, outputname]
                 run_sync(qemucmd)
@@ -335,7 +335,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
                 log("Created: {0}".format(outputname))
 
             if 'hyperv' in imageouttypes:
-                outputname = os.path.join(imageoutputdir, '%s-hyperv.vhd' % (self.os_nr))
+                outputname = os.path.join(self.image_content_outputdir, '%s-hyperv.vhd' % (self.os_nr))
                 # We can only create a gen1 hyperv image with no ova right now
                 qemucmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'vpc', image.data, outputname]
                 run_sync(qemucmd)
@@ -377,7 +377,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
         # Imgfac will ensure proper qemu type is used
         target_image = self.builder.buildimagetype(imagetype, image.identifier)
         infile = target_image.data
-        outfile = os.path.join(self._imageoutputdir, '%s-%s.%s' % (self._name, imagetype, fileext))
+        outfile = os.path.join(self.image_content_outputdir, '%s-%s.%s' % (self._name, imagetype, fileext))
         shutil.copyfile(infile, outfile)
         log("Created: {0}".format(outfile))
 
@@ -438,13 +438,11 @@ def parseimagetypes(imagetypes):
 
 def main(cmd):
     parser = argparse.ArgumentParser(description='Use ImageFactory to create a disk image',
-                                     parents=[TaskBase.baseargs()])
+                                     parents=ImageTaskBase.all_baseargs())
     parser.add_argument('-i', '--images', help='Output image formats in list format', action='append')
     parser.add_argument('--name', type=str, required=False, help='Image name')
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')
     parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
-    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
-    parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
     parser.add_argument('-k', '--kickstart', type=str, required=False, default=None, help='Path to kickstart') 
     parser.add_argument('--vkickstart', type=str, required=False, help='Path to vagrant kickstart') 
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
@@ -453,20 +451,13 @@ def main(cmd):
      
     imagetypes = parseimagetypes(args.images)
 
-    if os.path.exists(args.outputdir):
-        if not args.overwrite:
-            fail_msg("The output directory {0} already exists.".format(args.outputdir))
-        else:
-            shutil.rmtree(args.outputdir)
-
     composer = ImageFactoryTask(args, cmd, profile=args.profile)
 
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
     try:
-        composer.create(imageoutputdir=args.outputdir,
-                        name=composer.name,
+        composer.create(name=composer.name,
                         ksfile=composer.kickstart,
                         vkickstart=args.vkickstart,
                         tdl=composer.tdl,

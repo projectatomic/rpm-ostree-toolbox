@@ -20,7 +20,7 @@ import argparse
 import os
 import shutil
 
-from .taskbase import TaskBase
+from .taskbase import ImageTaskBase
 from .utils import fail_msg, run_sync, log
 from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
@@ -29,13 +29,13 @@ import json
 
 
 class CreateLiveTask(AbstractImageFactoryTask):
-    def __init__(self, args, cmd, profile):
-        AbstractImageFactoryTask.__init__(self, args, cmd, profile)
+    def __init__(self, args, cmd, profile=None):
+        AbstractImageFactoryTask.__init__(self, args, cmd, profile=profile)
         self._args = args
         self._cmd = cmd
         self._profile = profile
 
-    def createLiveDisk(self):
+    def impl_create(self):
         log("Starting build")
 
         if self._args.diskimage:
@@ -57,7 +57,7 @@ class CreateLiveTask(AbstractImageFactoryTask):
         self.lmcContainer(self._inputdiskpath)
 
     def lmcContainer(self, diskimage):
-        inst = InstallerTask(self._args, self._cmd, self._profile)
+        inst = InstallerTask(self._args, self._cmd, profile=self._profile)
         docker_os = self.docker_os_name
         docker_image_name = '{0}/rpmostree-toolbox-lmc'.format(docker_os)
 
@@ -129,36 +129,36 @@ CMD ["/bin/sh", "/root/lmc_shell.sh"]
             db_cmd = ['docker', 'build', '-t', docker_image_name, os.path.dirname(tmp_docker_file)]
             run_sync(db_cmd, env=child_env)
 
-        # Docker run
-        lmc_outputdir = os.path.abspath(os.path.join(self._args.outputdir, "lmc/"))
-        cp_cmd = ['cp', '-v', '--sparse=auto', diskimage, os.path.join(lmc_outputdir, "lmc_input_disk")]
+        # FIXME; why are we copying the input disk?
+        run_sync(['cp', '-v', '--sparse=auto', diskimage, self.image_workdir + "/lmc_input_disk"])
 
-        run_sync(cp_cmd)
+        try:
+            dr_cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=host',
+                      '--privileged=true', '-v', '{0}:{1}'.format(self.image_workdir, '/out'),
+                      docker_image_name]
+            child_env = dict(os.environ)
+            if 'http_proxy' in child_env:
+                del child_env['http_proxy']
+            run_sync(dr_cmd, env=child_env)
+        finally:
+            # Remove temporary image
+            os.unlink(self.image_workdir + "/lmc_input_disk")
 
-        dr_cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=host',
-                  '--privileged=true', '-v', '{0}:{1}'.format(lmc_outputdir, '/out'),
-                  docker_image_name]
-        child_env = dict(os.environ)
-        if 'http_proxy' in child_env:
-            del child_env['http_proxy']
-        run_sync(dr_cmd, env=child_env)
-
-        finaldir = os.path.join(lmc_outputdir, "images")
+        os.rename(self.image_workdir + '/images', self.image_content_outputdir)
+        os.mkdir(self.image_log_outputdir)
+        for fname in os.listdir(self.image_workdir):
+            if not fname.endswith('.log'):
+                continue
+            shutil.move(self.image_workdir + '/' + fname, self.image_log_outputdir)
 
         # Make readable for users
-        os.chmod(finaldir, 0755)
-
-        # Remove temporary image
-        os.remove(os.path.join(lmc_outputdir, "lmc_input_disk"))
-        log("Your images can be found at {0}".format(finaldir))
+        os.chmod(self.image_content_outputdir, 0755)
 
 
 # End liveimage
 
 def main(cmd):
-    parser = argparse.ArgumentParser(description='Create live images', parents=[TaskBase.baseargs()])
-    parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
-    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
+    parser = argparse.ArgumentParser(description='Create live images', parents=ImageTaskBase.all_baseargs())
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-k', '--kickstart', type=str, required=False, default=None, help='Path to kickstart')
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')
@@ -168,19 +168,8 @@ def main(cmd):
     parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
 
     args = parser.parse_args()
-    lmc_outputdir = os.path.join(args.outputdir, "lmc")
-    if os.path.exists(lmc_outputdir):
-        if not args.overwrite:
-            fail_msg("The output directory {0} already exists.".format(lmc_outputdir))
-        else:
-            shutil.rmtree(lmc_outputdir)
-            os.mkdir(lmc_outputdir, 0755)
-    else:
-        os.mkdir(lmc_outputdir, 0755)
-
     composer = CreateLiveTask(args, cmd, profile=args.profile)
     try:
-        composer.createLiveDisk()
-
+        composer.create()
     finally:
         composer.cleanup()

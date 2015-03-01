@@ -26,7 +26,7 @@ import oz.GuestFactory
 import tarfile
 import shutil
 
-from .taskbase import TaskBase
+from .taskbase import ImageTaskBase
 from .utils import fail_msg, run_sync, TrivialHTTP, log
 from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
@@ -37,11 +37,11 @@ from .imagefactory import getDefaultIP
 
 from gi.repository import GLib  # pylint: disable=no-name-in-module
 
-class InstallerTask(TaskBase):
+class InstallerTask(ImageTaskBase):
     container_id = ""
 
     def __init__(self, *args, **kwargs):
-        TaskBase.__init__(self, *args, **kwargs)
+        ImageTaskBase.__init__(self, *args, **kwargs)
         self.tdl = None
 
     def dumpTempMeta(self, fullpathname, tmpstr):
@@ -119,7 +119,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             del child_env['http_proxy']
         run_sync(db_cmd, env=child_env)
 
-    def create(self, installer_outputdir, post=None):
+    def impl_create(self, post=None):
         lorax_tmpl = open(os.path.join(self.pkgdatadir, 'lorax-http-repo.tmpl')).read()
 
         # Yeah, this is pretty awful.
@@ -161,7 +161,6 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         else:
             log("Skipping subtask docker-lorax")
 
-        installer_outputdir = os.path.abspath(installer_outputdir)
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
@@ -169,7 +168,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                   '-e', 'OSTREE_HOST={0}'.format(httpd_url),
                   '-e', 'OSTREE_PATH={0}'.format(self.httpd_path),
                   '--workdir', '/out', '-it', '--net=host', '--privileged=true',
-                  '-v', '{0}:{1}'.format(installer_outputdir, '/out'),
+                  '-v', '{0}:{1}'.format(self.image_workdir, '/out'),
                   docker_image_name]
 
         child_env = dict(os.environ)
@@ -181,7 +180,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             trivhttp.stop()
 
         # We injected data into boot.iso, so it's now installer.iso
-        lorax_output = installer_outputdir + '/lorax'
+        lorax_output = self.image_workdir + '/lorax'
         lorax_images = lorax_output + '/images'
         os.rename(lorax_images + '/boot.iso', lorax_images + '/installer.iso')
 
@@ -196,12 +195,19 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                         treeout.write(line)
         os.rename(treeinfo_tmp, treeinfo)
 
+        os.rename(lorax_images, self.image_content_outputdir)
+        os.mkdir(self.image_log_outputdir)
+        for fname in os.listdir(self.image_workdir):
+            if not fname.endswith('.log'):
+                continue
+            shutil.move(self.image_workdir + '/' + fname, self.image_log_outputdir)
+
 # End Composer
 
 
 def main(cmd):
     parser = argparse.ArgumentParser(description='Create an installer image',
-                                     parents=[TaskBase.baseargs()])
+                                     parents=ImageTaskBase.all_baseargs())
     parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('--util_uuid', required=False, default=None, type=str, help='The UUID of an existing utility image')
@@ -211,25 +217,12 @@ def main(cmd):
     parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
     parser.add_argument('--virt', action='store_true', help='Use libvirt')
     parser.add_argument('--post', type=str, help='Run this %%post script in interactive installs')
-    parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
-    parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
     args = parser.parse_args()
     composer = InstallerTask(args, cmd, profile=args.profile)
     composer.show_config()
     global verbosemode
     verbosemode = args.verbose
 
-    installer_outputdir = args.outputdir
-    # Check if the lorax outputdir already exists
-    lorax_outputdir = os.path.join(installer_outputdir, "lorax")
-    if os.path.exists(lorax_outputdir):
-        if not args.overwrite:
-            fail_msg("The directory {0} already exists.  It must be removed or renamed so that lorax can be run".format(lorax_outputdir))
-        else:
-            shutil.rmtree(lorax_outputdir)
-    elif not os.path.isdir(installer_outputdir):
-        fail_msg("The output directory {0} does not exist".format(installer_outputdir))
-        
-    composer.create(installer_outputdir, post=args.post)
+    composer.create(post=args.post)
 
     composer.cleanup()
