@@ -19,6 +19,8 @@ BuildRequires: pkgconfig(ostree-1)
 BuildRequires: pkgconfig(libgsystem)
 BuildRequires: pkgconfig(json-glib-1.0)
 
+%define imagefactory_version 1.1.6-2
+
 %global unprivileged_user rpmostreecompose
 %global unprivileged_group rpmostreecompose
 
@@ -42,12 +44,12 @@ Requires: docker
 %endif
 
 # Imagefactory
-Requires: imagefactory >= 1.1.7-1
-Requires: imagefactory-plugins-TinMan >= 1.1.7-1
-Requires: imagefactory-plugins-OVA >= 1.1.7-1
-Requires: imagefactory-plugins-vSphere >= 1.1.7-1
-Requires: imagefactory-plugins-RHEVM >= 1.1.7-1
-Requires: imagefactory-plugins-IndirectionCloud >= 1.1.7-1
+Requires: imagefactory >= %{imagefactory_version}
+Requires: imagefactory-plugins-TinMan >= %{imagefactory_version}
+Requires: imagefactory-plugins-OVA >= %{imagefactory_version}
+Requires: imagefactory-plugins-vSphere >= %{imagefactory_version}
+Requires: imagefactory-plugins-RHEVM >= %{imagefactory_version}
+Requires: imagefactory-plugins-IndirectionCloud >= %{imagefactory_version}
 
 Requires: VMDKstream >= 0.3-1
 
