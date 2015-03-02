@@ -161,24 +161,6 @@ class TaskBase(object):
 
         self.os_nr = "{0}-{1}".format(self.os_name, self.release)
 
-        # Set kickstart file from args, else fallback to default
-        if cmd in ["imagefactory"]:
-            if 'kickstart' in args and args.kickstart is not None:
-                self.kickstart = args.kickstart
-            else:
-                defks = "{0}.ks".format(self.os_nr)
-
-                self.kickstart = os.path.join(self.configdir, defks)
-                if not os.path.exists(self.kickstart):
-                    fail_msg("No kickstart was passed with -k and {0} does not exist".format(self.kickstart))
-
-        # Set KS for liveimage
-        if cmd in ["liveimage"]:
-            if 'kickstart' in args and args.kickstart is not None:
-                self.kickstart = args.kickstart
-            else:
-                fail_msg("No kickstart for creating a live image was passed with -k")
-
         # Set name from args, else fallback to default
         if 'name' in args and args.name is not None:
             self.name = args.name

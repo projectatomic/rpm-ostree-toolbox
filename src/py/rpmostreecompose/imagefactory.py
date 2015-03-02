@@ -166,6 +166,8 @@ class KojiBuilder(ImgBuilder):
 class AbstractImageFactoryTask(ImageTaskBase):
     def __init__(self, *args, **kwargs):
         ImageTaskBase.__init__(self, *args, **kwargs)
+
+        # TDL
         if 'tdl' in self.args and self.args.tdl is not None:
             self.tdl = self.args.tdl
         else:
@@ -173,6 +175,17 @@ class AbstractImageFactoryTask(ImageTaskBase):
             self.tdl = os.path.join(self.configdir, deftdl)
             if not os.path.exists(self.tdl):
                 fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(self.tdl))
+
+        # Kickstart
+        if 'kickstart' in self.args and self.args.kickstart is not None:
+            self.kickstart = self.args.kickstart
+        else:
+            defks = "{0}.ks".format(self.os_nr)
+
+            self.kickstart = os.path.join(self.configdir, defks)
+            if not os.path.exists(self.kickstart):
+                fail_msg("No kickstart was passed with -k and {0} does not exist".format(self.kickstart))
+
         self.ozoverrides = {}
 
     def addozoverride(self, cfgsec, key, value):
