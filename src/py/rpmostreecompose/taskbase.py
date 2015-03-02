@@ -180,7 +180,7 @@ class TaskBase(object):
                 fail_msg("No kickstart for creating a live image was passed with -k")
 
         # Set tdl from args, else fallback to default
-        if cmd in ["imagefactory", "liveimage"] or ( cmd in ['installer'] and args.virt ):
+        if cmd in ["imagefactory", "liveimage"]:
             if 'tdl' in args and args.tdl is not None:
                 self.tdl = args.tdl
             else:
@@ -198,14 +198,6 @@ class TaskBase(object):
         if cmd == "installer":
             if not self.yum_baseurl and args.yum_baseurl == None:
                 fail_msg("No yum_baseurl was provided in your config.ini or with installer -b.")
-
-            # Set util_uuid
-            self.util_uuid = args.util_uuid
-
-            if not args.util_uuid and not args.util_tdl and args.virt:
-                fail_msg ("You must provide a TDL for your utility image with --util_tdl")
-            else:
-                self.util_tdl = args.util_tdl
 
         if self.http_proxy:
             os.environ['http_proxy'] = self.http_proxy
