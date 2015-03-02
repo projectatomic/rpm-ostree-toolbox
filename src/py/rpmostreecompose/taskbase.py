@@ -179,16 +179,6 @@ class TaskBase(object):
             else:
                 fail_msg("No kickstart for creating a live image was passed with -k")
 
-        # Set tdl from args, else fallback to default
-        if cmd in ["imagefactory", "liveimage"]:
-            if 'tdl' in args and args.tdl is not None:
-                self.tdl = args.tdl
-            else:
-                deftdl = "{0}.tdl".format(self.os_nr)
-                self.tdl = os.path.join(self.configdir, deftdl)
-                if not os.path.exists(self.tdl):
-                    fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(self.tdl))
-
         # Set name from args, else fallback to default
         if 'name' in args and args.name is not None:
             self.name = args.name

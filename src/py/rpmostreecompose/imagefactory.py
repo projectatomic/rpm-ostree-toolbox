@@ -166,6 +166,13 @@ class KojiBuilder(ImgBuilder):
 class AbstractImageFactoryTask(ImageTaskBase):
     def __init__(self, *args, **kwargs):
         ImageTaskBase.__init__(self, *args, **kwargs)
+        if 'tdl' in self.args and self.args.tdl is not None:
+            self.tdl = self.args.tdl
+        else:
+            deftdl = "{0}.tdl".format(self.os_nr)
+            self.tdl = os.path.join(self.configdir, deftdl)
+            if not os.path.exists(self.tdl):
+                fail_msg("No TDL file was passed with --tdl and {0} does not exist".format(self.tdl))
         self.ozoverrides = {}
 
     def addozoverride(self, cfgsec, key, value):
