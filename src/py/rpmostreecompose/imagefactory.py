@@ -239,7 +239,7 @@ class AbstractImageFactoryTask(ImageTaskBase):
         os.mkdir(contextdir)
         ksworker_name = self.buildDockerWorker('kickstart', ['pykickstart'], dockerfile, contextdir)
 
-        cmd = ['docker', 'run', '--rm', '--workdir', '/out', '-it', '--net=none',
+        cmd = ['docker', 'run', '--rm', '--privileged', '--workdir', '/out', '-it', '--net=none',
                '-v', '{0}:{1}:ro'.format(os.path.dirname(ksfile), '/in'),
                '-v', '{0}:{1}'.format(contextdir, '/out'),
                ksworker_name]
