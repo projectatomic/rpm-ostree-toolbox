@@ -51,7 +51,7 @@ Requires: imagefactory-plugins-vSphere >= %{imagefactory_version}
 Requires: imagefactory-plugins-RHEVM >= %{imagefactory_version}
 Requires: imagefactory-plugins-IndirectionCloud >= %{imagefactory_version}
 
-Requires: VMDKstream >= 0.3-1
+Requires: VMDKstream >= 0.2-6
 
 %if 0%{?rhel}
 %else
