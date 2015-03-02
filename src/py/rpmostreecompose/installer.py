@@ -195,7 +195,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                         treeout.write(line)
         os.rename(treeinfo_tmp, treeinfo)
 
-        os.rename(lorax_images, self.image_content_outputdir)
+        os.rename(lorax_output, self.image_content_outputdir)
         os.mkdir(self.image_log_outputdir)
         for fname in os.listdir(self.image_workdir):
             if not fname.endswith('.log'):
