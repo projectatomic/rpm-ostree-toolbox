@@ -19,6 +19,8 @@
 import json
 import os
 import sys
+import re
+import StringIO
 import tempfile
 import argparse
 import shutil
@@ -252,33 +254,51 @@ class AbstractImageFactoryTask(ImageTaskBase):
         os.rename(contextdir + '/' + ks_basename, flattened_ks)
 
         # TODO: Pull kickstart from separate git repo
-        ksdata = open(flattened_ks).read()
         substitutions = { 'OSTREE_REF':  self.ref,
                           'OSTREE_OSNAME':  self.os_name}
 
-        if '@OSTREE_PORT@' in ksdata:
-             substitutions['OSTREE_PORT'] = self.httpd_port
+        substitutions['OSTREE_PORT'] = self.httpd_port
 
-        if '@OSTREE_HOST_IP@' in ksdata:
-            if not self.ostree_repo_is_remote:
-                host_ip = getDefaultIP(hostnet=self.virtnetwork)
-            else:
-                host_ip = self.httpd_host
-            substitutions['OSTREE_HOST_IP'] = host_ip
+        if not self.ostree_repo_is_remote:
+            host_ip = getDefaultIP(hostnet=self.virtnetwork)
+        else:
+            host_ip = self.httpd_host
 
-        if '@OSTREE_PATH@' in ksdata:
-            substitutions['OSTREE_PATH'] = self.httpd_path
+        # fallback
+        if host_ip is None:
+            log("notice: unable to determine libvirt network, using 192.168.122.1")
+            host_ip = '192.168.122.1'
 
-        if '@OSTREE_LOCATION@' in ksdata:
-            if not self.ostree_repo_is_remote:
-                ostree_location = "file:///install/ostree"
-            else:
-                ostree_location = "http://{0}:{1}:{2}".format(self.httpd_host, self.httpd_port, self.httpd_path)
-            substitutions['OSTREE_LOCATION'] = ostree_location
+        substitutions['OSTREE_HOST_IP'] = host_ip
 
-        for subname, subval in substitutions.iteritems():
-            ksdata = ksdata.replace('@%s@' % (subname, ), subval)
-        return ksdata
+        substitutions['OSTREE_PATH'] = self.httpd_path
+
+        local_http_location = "http://{0}:{1}:{2}".format(host_ip, self.httpd_port, self.httpd_path)
+
+        if not self.ostree_repo_is_remote:
+            ostree_location = "file:///install/ostree"
+        else:
+            ostree_location = local_http_location
+        substitutions['OSTREE_LOCATION'] = ostree_location
+
+        # Always replace the URL with the local repo.  If we're
+        # running the imagefactory command here, we expect to be using local.
+        r = re.compile('^(ostreesetup.*)--url=[^\s]+?(.*)')
+        newbuf = StringIO.StringIO()
+        with open(flattened_ks) as f:
+            for line in f:
+                for subname, subval in substitutions.iteritems():
+                    line = line.replace('@%s@' % (subname, ), subval)
+
+                m = r.match(line)
+                if not m:
+                    newbuf.write(line)
+                    continue
+                newbuf.write(m.group(1))
+                newbuf.write('--url=' + local_http_location)
+                newbuf.write(m.group(2))
+                
+        return newbuf.getvalue()
 
 
 class ImageFactoryTask(AbstractImageFactoryTask):
