@@ -62,10 +62,6 @@ jsautobuiltins_DATA= \
 	src/js/builtins/trivial_autocompose.js \
 	$(NULL)
 
-pkgdata_SCRIPTS = \
-	src/scripts/trivial-autocompose-create-disks.sh
-	$(NULL)
-
 pytoolboxdatadir = $(pkgdatadir)
 pytoolboxdata_DATA = \
 	src/py/config.ini.sample \
@@ -91,15 +87,6 @@ pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/taskrunner.py \
 	src/py/rpmostreecompose/version.py \
 	src/py/rpmostreecompose/liveimage.py \
-	$(NULL)
-
-pytoolboxdatavagrantdir = $(pytoolboxdatadir)/vagrant
-pytoolboxdatavagrant_DATA = \
-	src/py/vagrant/metadata.json \
-	src/py/vagrant/Vagrantfile \
-	src/py/vagrant/vagrant-postprocess.json \
-	src/py/vagrant/vagrant-prep \
-	src/py/vagrant/vagrant-prep.service \
 	$(NULL)
 
 install-varlib-hook:
