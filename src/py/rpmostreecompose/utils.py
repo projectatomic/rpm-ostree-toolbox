@@ -22,6 +22,7 @@ import subprocess
 import os
 import signal
 import ctypes
+import urllib2
 
 def fail_msg(msg):
     if False:

@@ -91,7 +91,7 @@ for x in $(seq 0 6); do
   path=/dev/loop${{x}}
   if ! test -b ${{path}}; then mknod -m660 ${{path}} b 7 ${{x}}; fi
 done
-sed -e "s,@OSTREE_PORT@,${{OSTREE_PORT}}," -e "s,@OSTREE_PATH@,${{OSTREE_PATH}}," -e "s,@OSTREE_HOST@,${{OSTREE_HOST}},"  < /root/lorax.tmpl.in > /root/lorax.tmpl
+sed -e "s,@OSTREE_URL@,${{OSTREE_URL}},"  < /root/lorax.tmpl.in > /root/lorax.tmpl
 echo Running: {0}
 exec {0}
 """.format(" ".join(map(GLib.shell_quote, lorax_cmd)))
@@ -135,19 +135,23 @@ CMD ["/bin/sh", "/root/lorax.sh"]
             httpd_port = str(trivhttp.http_port)
             httpd_url = '127.0.0.1'
             log("trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid))
+            ostree_url = "http://{0}:{1}".format(httpd_url, httpd_port)
         else:
             httpd_port = self.httpd_port
             httpd_url = self.httpd_host
+            ostree_url = self.ostree_repo
+
+        # Test connectivity to the the ostree repository.  Here we look for
+        # for the repository's /config file.
+        self._require_ostree_repo(ostree_url)
+
         substitutions = {'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
                          'OS_PRETTY': self.os_pretty_name,
-                         'OS_VER': self.release
+                         'OS_VER': self.release,
+                         'OS_VER': self.release,
+                         'OSTREE_URL': ostree_url
                          }
-
-        # Test connectivity to trivial-httpd before we do the full run
-        # I'm seeing some issues where it fails sometimes, and this will help
-        # speed up debugging.
-        run_sync(['curl', 'http://' + httpd_url + ':' + httpd_port])
 
         for subname, subval in substitutions.iteritems():
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
@@ -164,12 +168,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
-        dr_cmd = ['docker', 'run', '--rm', '-e', 'OSTREE_PORT={0}'.format(httpd_port),
-                  '-e', 'OSTREE_HOST={0}'.format(httpd_url),
-                  '-e', 'OSTREE_PATH={0}'.format(self.httpd_path),
-                  '--workdir', '/out', '-it', '--net=host', '--privileged=true',
-                  '-v', '{0}:{1}'.format(self.image_workdir, '/out'),
-                  docker_image_name]
+        dr_cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=host', '--privileged=true',
+                  '-v', '{0}:{1}'.format(self.image_workdir, '/out'), docker_image_name]
 
         child_env = dict(os.environ)
         if 'http_proxy' in child_env:

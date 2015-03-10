@@ -206,6 +206,14 @@ class TaskBase(object):
         if len(missing_confs) > 0:
             fail_msg("The following option(s) {0} are not defined in your configuration file.  Please define them and re-run".format(missing_confs))
 
+    def _require_ostree_repo(self, url):
+        configurl = url + '/config'
+        try:
+            subprocess.check_call(['curl', '--head', configurl])
+        except subprocess.CalledProcessError, e:
+            fail_msg("Unable to find OSTree repository config {0}; Please verify the location and re-run.".format(configurl))
+        log("Verified OSTree repository: {0}".format(url))
+
     def flattenjsoninclude(self, params, includefile):
         """ This function merges a dict that represents a tree file
         with a json includefile. It can now handle recursive json
