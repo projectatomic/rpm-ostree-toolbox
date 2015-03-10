@@ -273,7 +273,8 @@ class AbstractImageFactoryTask(ImageTaskBase):
 
         substitutions['OSTREE_PATH'] = self.httpd_path
 
-        local_http_location = "http://{0}:{1}:{2}".format(host_ip, self.httpd_port, self.httpd_path)
+        local_http_location = "http://{0}:{1}/{2}".format(host_ip, self.httpd_port, self.httpd_path)
+        log("Using local http: {0}".format(local_http_location))
 
         if not self.ostree_repo_is_remote:
             ostree_location = "file:///install/ostree"
@@ -283,7 +284,7 @@ class AbstractImageFactoryTask(ImageTaskBase):
 
         # Always replace the URL with the local repo.  If we're
         # running the imagefactory command here, we expect to be using local.
-        r = re.compile('^(ostreesetup.*)--url=[^\s]+?(.*)')
+        r = re.compile('^(ostreesetup.*?)--url=[^\s]+(.*)')
         newbuf = StringIO.StringIO()
         with open(flattened_ks) as f:
             for line in f:
@@ -295,7 +296,7 @@ class AbstractImageFactoryTask(ImageTaskBase):
                     newbuf.write(line)
                     continue
                 newbuf.write(m.group(1))
-                newbuf.write('--url=' + local_http_location)
+                newbuf.write('--url="{0}"'.format(local_http_location))
                 newbuf.write(m.group(2))
                 
         return newbuf.getvalue()
