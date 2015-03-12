@@ -83,7 +83,6 @@ class RpmOstreeComposeRepo(object):
         if version is not None:
             argv.append('--add-metadata-string=version=' + version)
         argv.append(treefile)
-        print "%r"  %(argv,)
         subprocess.check_call(argv, stdout=stdout, stderr=stderr)
         [_,rev] = self.repo.resolve_rev(treedata['ref'], True)
         return rev
