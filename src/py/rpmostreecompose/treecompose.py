@@ -27,9 +27,10 @@ import distutils.spawn
 from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import iniparse
 
+from pyrpmostreetoolbox.composerepo import RpmOstreeComposeRepo
+
 from .taskbase import TaskBase
 from .utils import run_sync, fail_msg, log
-
 
 def _rev2version(repo, rev):
     _,oldrev = repo.resolve_rev(rev, True)
@@ -51,7 +52,6 @@ class Treecompose(TaskBase):
         if not self.tree_file:
             self.tree_file = '%s/%s-%s.json' % (self.pkgdatadir, self.os_name,
                                                 self.tree_name)
-        rpmostreecmd = ['rpm-ostree', 'compose', 'tree', '--repo=' + self.ostree_repo]
 
         loaded_version = _rev2version(self.repo, self.ref)
 
@@ -126,18 +126,10 @@ class Treecompose(TaskBase):
                 elif int(tv[3]) < lv[3]:
                     fail_msg("<cve> of version is getting older.")
             log("** Building Version: " + self.tree_version)
-            rpmostreecmd.append('--add-metadata-string=version=' + self.tree_version)
 
-        rpmostreecachedir = self.rpmostree_cache_dir
-        if rpmostreecachedir is not None:
-            cachecmd = '--cachedir=' + rpmostreecachedir
-            rpmostreecmd.append(cachecmd)
-            if not os.path.exists(rpmostreecachedir):
-                os.makedirs(rpmostreecachedir)
-        rpmostreecmd.append(self.jsonfilename)
+        r = RpmOstreeComposeRepo(self.ostree_repo)
+        newrev = r.compose_process(self.jsonfilename, version=self.tree_version)
 
-        subprocess.check_call(rpmostreecmd)
-        _,newrev = self.repo.resolve_rev(self.ref, True)
         return (origrev, newrev)
 
 ## End Composer

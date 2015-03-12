@@ -10,4 +10,5 @@ else
     PYLINT_OPTIONS=-E
 fi
 
-exec pylint -d line-too-long ${PYLINT_OPTIONS} $srcdir/src/py/rpmostreecompose
+pylint -d line-too-long ${PYLINT_OPTIONS} $srcdir/src/pyrpmostree
+pylint -d line-too-long ${PYLINT_OPTIONS} $srcdir/src/py/rpmostreecompose
