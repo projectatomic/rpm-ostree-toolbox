@@ -20,9 +20,13 @@ import logging
 import os
 import json
 import subprocess
+import collections
 import sys
+from StringIO import StringIO
 
 from gi.repository import GLib, Gio, OSTree
+
+PackageChange = collections.namedtuple('PackageChange', ['frompkg', 'topkg'])
 
 class RpmOstreeComposeRepo(object):
     """Class with various utility functions for doing compose/rel-eng
@@ -76,6 +80,43 @@ class RpmOstreeComposeRepo(object):
         else:
             logging.info("No staging commits to prune")
 
+    def pkgdiff(self, from_ref, to_ref):
+        """Perform a package-level diff between two commits, returning a
+        3-tuple (CHANGED, ADDED, REMOVED) where ADDED and REMOVED are simple
+        lists, and CHANGED is a PackageChange object".
+        list.
+
+        """
+        output = subprocess.check_output(["rpm-ostree",
+                                         "db",
+                                         "diff",
+                                         "--format=diff",
+                                         "--repo=" + self.repopath,
+                                         from_ref,
+                                         to_ref])
+        added = []
+        removed = []
+        changed = []
+        current_from_package = None
+        for line in StringIO(output):
+            if line.startswith('ostree diff commit '):
+                continue
+            line = line.strip()
+            print "%r" % (line, )
+            change = line[0]
+            rpm = line[1:]
+            if '!' == change:
+                current_from_package = rpm
+            elif '=' == change:
+                assert current_from_package is not None
+                changed.append(PackageChange(current_from_package, rpm))
+                current_from_package = None
+            elif '-' == change:
+                removed.append(rpm)
+            elif '+' == change:
+                added.append(rpm)
+        return (changed, added, removed)
+
     def compose_process(self, treefile, version=None, stdout=None, stderr=None):
         """Currently a thin wrapper for subprocess."""
         treedata = json.load(open(treefile))
@@ -86,3 +127,12 @@ class RpmOstreeComposeRepo(object):
         subprocess.check_call(argv, stdout=stdout, stderr=stderr)
         [_,rev] = self.repo.resolve_rev(treedata['ref'], True)
         return rev
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.INFO)
+    r = RpmOstreeComposeRepo(sys.argv[1])
+    ref = sys.argv[2]
+    r.delete_commits_with_key(ref, 'foo.staging')
+    print "%r" % (r.pkgdiff(ref + '^', ref), )
+    r.compose_process(treefile=sys.argv[3],
+                      version='42')
