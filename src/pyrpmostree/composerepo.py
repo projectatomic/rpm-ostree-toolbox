@@ -102,7 +102,6 @@ class RpmOstreeComposeRepo(object):
             if line.startswith('ostree diff commit '):
                 continue
             line = line.strip()
-            print "%r" % (line, )
             change = line[0]
             rpm = line[1:]
             if '!' == change:
