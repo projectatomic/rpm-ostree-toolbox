@@ -116,6 +116,32 @@ class RpmOstreeComposeRepo(object):
                 added.append(rpm)
         return (changed, added, removed)
 
+    def prune_history_before(self, ref, date):
+        """Delete all commits which are older than the given date,
+        which should be an instance of GLib.DateTime().
+        """
+
+        [_,rev] = self.repo.resolve_rev(ref, False)
+        commit = None
+        iter_rev = rev
+        n_deleted = 0
+        while iter_rev is not None:
+            cur_rev = iter_rev
+            _,commit = self.repo.load_variant(OSTree.ObjectType.COMMIT, cur_rev)
+            iter_rev = OSTree.commit_get_parent(commit)
+
+            ts = OSTree.commit_get_timestamp(commit)
+            tsdate = GLib.DateTime.new_from_unix_utc(ts)
+
+            diff_secs = tsdate.difference(date) / GLib.USEC_PER_SEC
+
+            if diff_secs > 0:
+                continue
+                
+            logging.info("Deleting commit {0} {1} seconds in the past".format(cur_rev, diff_secs))
+            n_deleted += 1
+        logging.info("Deleted {0} commits".format(n_deleted))
+
     def compose_process(self, treefile, version=None, stdout=None, stderr=None):
         """Currently a thin wrapper for subprocess."""
         treedata = json.load(open(treefile))
@@ -132,6 +158,7 @@ if __name__ == '__main__':
     r = RpmOstreeComposeRepo(sys.argv[1])
     ref = sys.argv[2]
     r.delete_commits_with_key(ref, 'foo.staging')
+    r.prune_history_before(ref, GLib.DateTime.new_now_utc().add_days(-14))
     print "%r" % (r.pkgdiff(ref + '^', ref), )
     r.compose_process(treefile=sys.argv[3],
                       version='42')
