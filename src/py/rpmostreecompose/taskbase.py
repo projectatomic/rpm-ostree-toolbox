@@ -158,6 +158,8 @@ class TaskBase(object):
 
         if 'virtnetwork' in args:
             self.virtnetwork = args.virtnetwork
+        else:
+            self.virtnetwork = None
 
         self.os_nr = "{0}-{1}".format(self.os_name, self.release)
 
