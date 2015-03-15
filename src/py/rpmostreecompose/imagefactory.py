@@ -335,7 +335,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             self.httpd_port = str(trivhttp.http_port)
             log("trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid))
         else:
-            httpd_port = self.ostree_port
+            self.httpd_port = self.ostree_port
 
         os.mkdir(self.image_content_outputdir)
         os.mkdir(self.image_log_outputdir)
