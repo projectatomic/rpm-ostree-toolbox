@@ -38,6 +38,8 @@ class CreateLiveTask(AbstractImageFactoryTask):
     def impl_create(self):
         log("Starting build")
 
+        self._ensure_httpd()
+
         if self._args.diskimage:
             self._inputdiskpath = self._args.diskimage
             log("Using existing disk image: {0}".format(self._args.diskimage))
@@ -55,6 +57,8 @@ class CreateLiveTask(AbstractImageFactoryTask):
             log("Created input disk: {0}".format(image.data))
 
         self.lmcContainer(self._inputdiskpath)
+
+        self._destroy_httpd()
 
     def lmcContainer(self, diskimage):
         inst = InstallerTask(self._args, self._cmd, profile=self._profile)

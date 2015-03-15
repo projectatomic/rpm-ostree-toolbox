@@ -168,6 +168,8 @@ class KojiBuilder(ImgBuilder):
 class AbstractImageFactoryTask(ImageTaskBase):
     def __init__(self, *args, **kwargs):
         ImageTaskBase.__init__(self, *args, **kwargs)
+        self.httpd_port = None
+        self._trivial_httpd = None
 
         # TDL
         if 'tdl' in self.args and self.args.tdl is not None:
@@ -189,6 +191,25 @@ class AbstractImageFactoryTask(ImageTaskBase):
                 fail_msg("No kickstart was passed with -k and {0} does not exist".format(self.kickstart))
 
         self.ozoverrides = {}
+
+    def _ensure_httpd(self):
+        """If we're using a local (on disk) OSTree repository, start a
+        temporary http server for it.
+
+        """
+        if not self.ostree_repo_is_remote: 
+            # Start trivial-httpd
+            self._trivial_httpd = TrivialHTTP()
+            self._trivial_httpd.start(self.ostree_repo)
+            self.httpd_port = str(self._trivial_httpd.http_port)
+            log("trivial httpd port=%s, pid=%s" % (self.httpd_port, self._trivial_httpd.http_pid))
+        else:
+            self.httpd_port = self.ostree_port
+
+    def _destroy_httpd(self):
+        if self._trivial_httpd is not None:
+            self._trivial_httpd.stop()
+            self._trivial_httpd = None
 
     def addozoverride(self, cfgsec, key, value):
         """
@@ -328,7 +349,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             if not os.path.isfile(self.vksfile):
                 fail_msg("Unable to find the kickstart file {0} required to build vagrant images.  Consider passing --vkickstart to override.".format(self.vksfile))
         
-
+                
         # FIXME : future version control related
         # [res, rev] = self.repo.resolve_rev(self.ref, False)
         # [res, commit] = self.repo.load_variant(OSTree.ObjectType.COMMIT, rev)
@@ -338,14 +359,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
 
         port_file_path = self.workdir + '/repo-port'
 
-        if not self.ostree_repo_is_remote: 
-            # Start trivial-httpd
-            trivhttp = TrivialHTTP()
-            trivhttp.start(self.ostree_repo)
-            self.httpd_port = str(trivhttp.http_port)
-            log("trivial httpd port=%s, pid=%s" % (self.httpd_port, trivhttp.http_pid))
-        else:
-            self.httpd_port = self.ostree_port
+        self._ensure_httpd()
 
         os.mkdir(self.image_content_outputdir)
         os.mkdir(self.image_log_outputdir)
@@ -409,9 +423,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             for imagetype in self.returnCommon(imageouttypes, ['vagrant-libvirt','vagrant-virtualbox']):
                 self.generateOVA(imagetype, "box", vimage)
 
-        if not self.ostree_repo_is_remote: 
-            trivhttp.stop()
-
+        self._destroy_httpd()
 
     @property
     def builder(self):
