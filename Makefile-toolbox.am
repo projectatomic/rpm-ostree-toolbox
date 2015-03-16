@@ -65,9 +65,7 @@ jsautobuiltins_DATA= \
 pytoolboxdatadir = $(pkgdatadir)
 pytoolboxdata_DATA = \
 	src/py/config.ini.sample \
-	src/py/lorax-embed-repo.tmpl \
 	src/py/lorax-http-repo.tmpl \
-	src/py/lorax-indirection-repo.tmpl \
 	$(NULL)
 
 pytoolboxpydir = $(pkglibdir)/py
