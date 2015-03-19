@@ -30,7 +30,7 @@ from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import ConfigParser
 import libvirt
 import xml.etree.ElementTree as ET
-
+from . import pyazure
 
 from imgfac.PersistentImageManager import PersistentImageManager
 
@@ -366,7 +366,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
 
         self.checkoz("qcow2")
         # The conditional handles the building of the images listed below
-        if len(self.returnCommon(imageouttypes, ['rhevm', 'vsphere', 'kvm', 'raw', 'hyperv'])) > 0:
+        if len(self.returnCommon(imageouttypes, ['rhevm', 'vsphere', 'kvm', 'raw', 'hyperv', 'azure'])) > 0:
             ksdata = self.formatKS(ksfile)
             parameters =  { "install_script": ksdata,
                             "generate_icicle": False,
@@ -380,7 +380,7 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             # image uuid
 
             # self.builder.download()
-            # myuuid = "fd301dce-fba3-421d-a2e8-182cf2cefaf8"
+            # myuuid = "51ca9b60-d856-4b68-82bb-84b715c8f233"
             # pim = PersistentImageManager.default_manager()
             # image = pim.image_with_id(myuuid)
 
@@ -406,6 +406,26 @@ class ImageFactoryTask(AbstractImageFactoryTask):
                 run_sync(qemucmd)
                 imageouttypes.pop(imageouttypes.index("hyperv"))
                 log("Created: {0}".format(outputname))
+
+            if 'azure' in imageouttypes:
+                # We differentiate between vhds and azsure vhds due to azure enforcing
+                # a restriction of filesize.  
+                # http://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-create-upload-vhd-generic/
+
+                outputname = os.path.join(self.image_content_outputdir, '%s-azure.vhd' % (self.os_nr))
+                temp_raw = os.path.join(os.path.dirname(image.data), "temp.raw")
+                rawcmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, temp_raw]
+                run_sync(rawcmd)
+
+                with open(outputname, 'w') as outfile:
+                     with open(temp_raw) as infile:
+                         pyazure.do_vhd_convert(infile, outfile)
+                os.remove(temp_raw)
+
+                log("Created: {0}".format(outputname))
+
+                # Zip if more captabile with windows
+                run_sync(['zip', '-m', outputname + ".zip", outputname])
 
             for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
                 self.generateOVA(imagetype, "ova", image)
@@ -486,7 +506,7 @@ def getDefaultIP(hostnet=None):
 
 
 def parseimagetypes(imagetypes):
-    default_image_types = ["kvm", "raw", "vsphere", "rhevm", "vagrant-virtualbox", "vagrant-libvirt", "hyperv"]
+    default_image_types = ["kvm", "raw", "vsphere", "rhevm", "vagrant-virtualbox", "vagrant-libvirt", "hyperv", "azure"]
     if imagetypes == None:
         return default_image_types
 
