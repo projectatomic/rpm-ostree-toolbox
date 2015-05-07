@@ -120,6 +120,10 @@ class ImgFacBuilder(ImgBuilder):
 
         log("Working on a {0} for {1}".format(imagetype, baseid))
         vagrant = True if imagetype in ['vagrant-virtualbox', 'vagrant-libvirt'] else False
+        if vagrant:
+            # Absent this directive, Vagrant will attempt to sync to /vagrant
+            # which is not writeable in a normal rpm-ostree host
+            imgopts['vagrant_sync_directory'] = '/home/vagrant/sync'
         bd = BuildDispatcher()
         imagebuilder = bd.builder_for_target_image(imageformats[imagetype], image_id=baseid, template=None, parameters=imgopts)
         target_image = imagebuilder.target_image
