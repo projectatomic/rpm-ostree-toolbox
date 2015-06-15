@@ -63,7 +63,7 @@ class InstallerTask(ImageTaskBase):
             lorax_repos.extend(['-s', self.yum_baseurl])
 
         os_v = self.release
-        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl', '-e', 'fakesystemd', '-e', 'systemd-container',
+        lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl',
                      '-p', self.os_pretty_name, '-v', os_v, '-r', os_v]
         isolabel = "{0}-{1}-{2}".format(self.os_pretty_name, os_v, self.arch)
         if len(isolabel) > 32:
