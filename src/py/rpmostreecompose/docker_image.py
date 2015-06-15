@@ -78,6 +78,9 @@ def main(cmd):
 
         if args.releasever:
             yum_argv.append('--setopt=releasever=' + args.releasever)
+        else:
+            # dnf always wants a releasever, even if the repo files aren't using one.
+            yum_argv.append('--setopt=releasever=noreleasever')
 
         yum_argv.append('install')
         yum_argv.extend(args.packages)
