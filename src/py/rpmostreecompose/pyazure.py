@@ -169,7 +169,7 @@ def do_vhd_convert(infile, outfile):
 
     bat=""
     outfile.seek(first_block_sector * SECTORSIZE)
-    emptyblock = zerostring(VHD_BLOCKSIZE + 1)
+    emptyblock = zerostring(VHD_BLOCKSIZE)
     while True:
         inchunk = infile.read(VHD_BLOCKSIZE)
 
