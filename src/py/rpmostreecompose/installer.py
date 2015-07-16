@@ -173,7 +173,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         # Docker run
         dr_cidfile = os.path.join(self.workdir, "containerid")
 
-        dr_cmd = ['docker', 'run', '--workdir', '/out', '-it', '--net=host', '--privileged=true',
+        dr_cmd = ['docker', 'run', '--workdir', '/out', '--net=host', '--privileged=true',
                   '-v', '{0}:{1}'.format(self.image_workdir, '/out'), docker_image_name]
 
         child_env = dict(os.environ)
