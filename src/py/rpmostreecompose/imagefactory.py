@@ -316,9 +316,6 @@ class AbstractImageFactoryTask(ImageTaskBase):
         flattened_ks = self.workdir + '/' + ks_basename
         os.rename(contextdir + '/' + ks_basename, flattened_ks)
 
-
-        # Always replace the URL with the local repo.  If we're
-        # running the imagefactory command here, we expect to be using local.
         r = re.compile('^(ostreesetup.*?)--url=[^\s]+(.*)')
         newbuf = StringIO.StringIO()
         with open(flattened_ks) as f:
@@ -326,13 +323,19 @@ class AbstractImageFactoryTask(ImageTaskBase):
                 for subname, subval in substitutions.iteritems():
                     line = line.replace('@%s@' % (subname, ), subval)
 
-                m = r.match(line)
-                if not m:
+                # By default, we replace the --url with the local repo
+                # for developer convenience.  Automated use of this
+                # tool might point to an external repo.
+                if self.args.preserve_ks_url:
+                    m = None
+                else:
+                    m = r.match(line)
+                if m:
+                    newbuf.write(m.group(1))
+                    newbuf.write('--url="{0}"'.format(ostree_location))
+                    newbuf.write(m.group(2))
+                else:
                     newbuf.write(line)
-                    continue
-                newbuf.write(m.group(1))
-                newbuf.write('--url="{0}"'.format(ostree_location))
-                newbuf.write(m.group(2))
                 
         return newbuf.getvalue()
 

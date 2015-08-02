@@ -464,6 +464,7 @@ class ImageTaskBase(TaskBase):
         parser = argparse.ArgumentParser(description='Image task arguments', add_help=False)
         parser.add_argument('-o', '--outputdir', type=str, required=True, help='Path to image output directory')
         parser.add_argument('--overwrite', action='store_true', help='If true, replace any existing output')
+        parser.add_argument('--preserve-ks-url', action='store_true', help='If true, do not auto-substitute kickstart ostreesetup url') 
         return [TaskBase.baseargs(), parser]
 
     def impl_create(self, **kwargs):
