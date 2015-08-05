@@ -437,6 +437,8 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
                 self.generateOVA(imagetype, "ova", image)
 
+            os.unlink(image.data) 
+
         # This conditional handles the vagrant images
         if self.vagrant:
             # vagrant images need a new base image with changes in the KS
@@ -449,6 +451,8 @@ class ImageFactoryTask(AbstractImageFactoryTask):
 
             for imagetype in self.returnCommon(imageouttypes, ['vagrant-libvirt','vagrant-virtualbox']):
                 self.generateOVA(imagetype, "box", vimage)
+
+            os.unlink(vimage.data) 
 
         self._destroy_httpd()
 
