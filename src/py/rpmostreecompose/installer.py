@@ -165,7 +165,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
 
         os_pretty_name = os_pretty_name = '"{0}"'.format(self.os_pretty_name)
-        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(self.docker_os_name)
+        parts = self.docker_os_name.split("/")
+        docker_os = parts[0]
+        for i in parts[1:]:
+            docker_os += '/%s' % i.replace(".", "")
+        docker_image_name = '{0}/rpmostree-toolbox-lorax'.format(docker_os)
         if not ('docker-lorax' in self.args.skip_subtask):
             self._buildDockerImage(docker_image_name)
         else:

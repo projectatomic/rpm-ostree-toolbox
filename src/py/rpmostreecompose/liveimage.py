@@ -62,7 +62,10 @@ class CreateLiveTask(AbstractImageFactoryTask):
 
     def lmcContainer(self, diskimage):
         inst = InstallerTask(self._args, self._cmd, profile=self._profile)
-        docker_os = self.docker_os_name
+        parts = self.docker_os_name.split("/")
+        docker_os = parts[0]
+        for i in parts[1:]:
+            docker_os += '/%s' % i.replace(".", "")
         docker_image_name = '{0}/rpmostree-toolbox-lmc'.format(docker_os)
 
         # If a yum_baseurl is defined, add it to the yum repos
