@@ -143,6 +143,7 @@ CMD ["/bin/sh", "/root/lmc_shell.sh"]
         try:
             dr_cmd = ['docker', 'run', '--rm', '--workdir', '/out', '--net=host',
                       '--privileged=true', '-v', '{0}:{1}'.format(self.image_workdir, '/out'),
+                      '-v', '/sys/fs/selinux:/sys/fs/selinux',
                       docker_image_name]
             child_env = dict(os.environ)
             if 'http_proxy' in child_env:
