@@ -50,7 +50,7 @@ def _merge_lists(x, y):
 
 class TaskBase(object):
     ATTRS = [ 'workdir', 'rpmostree_cache_dir', 'pkgdatadir',
-              'os_name', 'os_pretty_name',
+              'os_name', 'os_pretty_name', 'ostree_repo',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos',
               'is_final',
@@ -142,7 +142,9 @@ class TaskBase(object):
                 # When ostree creates the summary file by default, re-enable this.
                 # if not self.checkRefExists(getattr(self,'ref'), summaryfile):
                 #     fail_msg("The ref {0} cannot be found in in the URL {1}".format(getattr(self,'ref'), self.ostree_repo))
-        else:
+        if not self.ostree_repo:
+            self.ostree_repo = os.environ.get('OSTREE_REPO')
+        if not self.ostree_repo:
             self.ostree_repo = self.outputdir + '/repo'
         release = self.release
         # Check for configdir in attrs, else fallback to dir holding config
