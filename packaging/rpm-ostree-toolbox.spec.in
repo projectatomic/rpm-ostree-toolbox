@@ -27,7 +27,6 @@ BuildRequires: pkgconfig(json-glib-1.0)
 Requires: python
 Requires: python-iniparse
 Requires: pygobject2
-Requires: gjs
 Requires: libvirt-python
 Requires: libguestfs-tools-c
 Requires: libguestfs-gobject
@@ -57,10 +56,6 @@ Requires: VMDKstream >= 0.2-6
 %else
 Requires: libguestfs-xfs
 %endif
-# Needed for rpmostree-build-monitor
-Requires:       python-qpid
-Requires:       cyrus-sasl-gssapi
-Requires:       python-saslwrapper
 Requires(pre):  shadow-utils
 Requires:       systemd-units
 Requires(post): systemd-units
@@ -91,24 +86,12 @@ getent passwd %{unprivileged_user} >/dev/null || \
 %files
 %doc COPYING README.md src/py/config.ini.sample
 %{_bindir}/rpm-ostree-toolbox
-%{_bindir}/rpm-ostree-toolbox-kinit
-%{_bindir}/rpm-ostree-toolbox-build-monitor
-%{_bindir}/rpm-ostree-toolbox-git-monitor
-%{_bindir}/rpm-ostree-toolbox-watch
 %{_libdir}/%{name}/
 %{_datadir}/%{name}/
 %{_mandir}/man1/%{name}*.gz
 
 %dir %{_localstatedir}/lib/%{name}
 %attr(0755,%{unprivileged_user},%{unprivileged_group}) %{_localstatedir}/lib/%{name}
-
-%config %{_sysconfdir}/sysconfig/%{name}-template
-
-%{_unitdir}/rpm-ostree-toolbox-kinit@.service
-%{_unitdir}/rpm-ostree-toolbox-kinit@.timer
-%{_unitdir}/rpm-ostree-toolbox-build-monitor@.service
-%{_unitdir}/rpm-ostree-toolbox-git-monitor.service
-%{_unitdir}/rpm-ostree-toolbox-watch@.service
 
 %changelog
 * Sat May 24 2014 Colin Walters <walters@verbum.org> - 2014.11-1

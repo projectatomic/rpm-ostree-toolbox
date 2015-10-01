@@ -29,37 +29,6 @@ EXTRA_DIST += src/rpm-ostree-toolbox.in
 toolbox_privlibdir=$(libdir)/$(PACKAGE)
 
 bin_SCRIPTS += rpm-ostree-toolbox \
-	src/scripts/rpm-ostree-toolbox-build-monitor \
-	src/scripts/rpm-ostree-toolbox-git-monitor \
-	src/scripts/rpm-ostree-toolbox-kinit \
-	src/scripts/rpm-ostree-toolbox-watch \
-	$(NULL)
-
-jstoolboxdir=$(pkgdatadir)/js
-jstoolbox_DATA= \
-	src/js/argparse.js \
-	src/js/asyncutil.js \
-	src/js/buildutil.js \
-	src/js/builtin.js \
-	src/js/fileutil.js \
-	src/js/jsonutil.js \
-	src/js/jsutil.js \
-	src/js/main.js \
-	src/js/libqa.js \
-	src/js/guestfish.js \
-	src/js/params.js \
-	src/js/procutil.js \
-	src/js/streamutil.js \
-	src/js/versioneddir.js \
-	$(NULL)
-
-jsautobuiltinsdir=$(jstoolboxdir)/builtins
-jsautobuiltins_DATA= \
-	src/js/builtins/create_vm_disk.js \
-	src/js/builtins/postprocess_disk.js \
-	src/js/builtins/repoweb.js \
-	src/js/builtins/shell.js \
-	src/js/builtins/trivial_autocompose.js \
 	$(NULL)
 
 pytoolboxdatadir = $(pkgdatadir)
