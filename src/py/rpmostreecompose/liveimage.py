@@ -80,19 +80,7 @@ class CreateLiveTask(AbstractImageFactoryTask):
             yb_repo = "[yum_baseurl-repo]\nname=yum_baseurl\nbaseurl={0}\nenabled=1\ngpgcheck=0\n".format(yb_url)
             inst.dumpTempMeta(os.path.join(self.workdir, "yb_baseurl.repo"), yb_repo)
 
-        packages = ['lorax', 'rpm-ostree', 'ostree']
-        docker_image_basename = docker_image_name + '-base'
-        docker_builder_argv = ['rpm-ostree-toolbox', 'docker-image',
-                               '--minimize=docs',
-                               '--minimize=langs',
-                               '--reposdir', self.workdir,
-                               '--enablerepo=yum_baseurl-repo',
-                               '--name', docker_image_basename]
-
-        docker_builder_argv.extend(packages)
-                               
-        run_sync(docker_builder_argv)
-
+        docker_image_basename = self.buildDockerWorkerBaseImage('lorax', ['lorax', 'rpm-ostree', 'ostree'])
         if not ('docker-create' in self.args.skip_subtask):
             # There is currently a bug for loop devices in containers,
             # so we make at least one device to be sure.
