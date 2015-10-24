@@ -108,7 +108,7 @@ FROM @DOCKER_OS@
 ADD lorax.tmpl /root/lorax.tmpl.in
 ADD lorax.sh /root/
 RUN mkdir /out
-RUN yum -y remove subscription-manager
+RUN if rpm -q subscription-manager 1>/dev/null 2>&1; then yum -y remove subscription-manager; fi
 RUN chmod u+x /root/lorax.sh
 CMD ["/bin/sh", "/root/lorax.sh"]
         """

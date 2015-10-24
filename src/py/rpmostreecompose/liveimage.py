@@ -108,7 +108,7 @@ done
 FROM @DOCKER_OS@
 RUN mkdir /out
 ADD lmc_shell.sh /root/
-RUN yum -y remove subscription-manager
+RUN if rpm -q subscription-manager 1>/dev/null 2>&1; then yum -y remove subscription-manager; fi
 RUN chmod u+x /root/lmc_shell.sh
 CMD ["/bin/sh", "/root/lmc_shell.sh"]
             """
