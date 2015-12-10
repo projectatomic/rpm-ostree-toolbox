@@ -79,8 +79,9 @@ class InstallerTask(ImageTaskBase):
         excludes = self.lorax_exclude_packages
         if excludes is not None:
             for exclude in excludes.split(','):
+                exclude = exclude.strip()
                 if exclude == '': continue
-                lorax_cmd.extend(['-e', exclude.strip()])
+                lorax_cmd.extend(['-e', exclude])
         includes = self.lorax_include_packages
         if includes is not None:
             for include in includes.split(','):
