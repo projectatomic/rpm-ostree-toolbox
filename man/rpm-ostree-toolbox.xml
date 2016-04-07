@@ -80,6 +80,26 @@ Boston, MA 02111-1307, USA.
       </varlistentry>
 
       <varlistentry>
+        <term><command>image-factory</command></term>
+
+        <listitem><para>With imagefactory, you can create various
+        virtualized images with libvirt related tooling. Currently it
+        is capable of making qcow2, raw, vsphere, and rhevm images.
+        This can be altered with the -i argument.</para>
+
+        <para>These need to reference an installer image.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>installer</command></term>
+
+        <listitem><para>This command creates ISO and PXE images that
+        can be used as install media. This can either be done with a
+        container-based approach or using libvirt.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><command>repoweb</command></term>
 	
 	<listitem><para>The core OSTree data format is designed to be
@@ -87,6 +107,16 @@ Boston, MA 02111-1307, USA.
 	parsable via JavaScript in web pages.  This tool creates a
 	cache of JSON formatted files for the repository that can be
 	easily read by client-side JavaScript.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>treecompose</command></term>
+
+        <listitem><para>This allows you to create a tree of ostree
+        content. It takes various inputs from a JSON file to perform
+        most of its actions. When complete, you will have an ostree
+        with content suitable for creating disk images.</para>
         </listitem>
       </varlistentry>
     </variablelist>
