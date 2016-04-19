@@ -255,15 +255,15 @@ class TaskBase(object):
         except:
             fail_msg("Unable to locate the {0} as described in the config.ini".format(self.tree_file))
         params = json.load(json_in)
-        if 'ref' not in 'params':
-            params['ref']  = self.ref
-        if 'selinux' not in 'params':
-            params['selinux'] = self.selinux
-        if 'osname' not in 'params':
-            params['osname'] = self.os_name
         if 'include' in params:
             includefile = params.pop('include')
             params = self.flattenjsoninclude(params, includefile)
+        if 'ref' not in params:
+            params['ref']  = self.ref
+        if 'selinux' not in params:
+            params['selinux'] = self.selinux
+        if 'osname' not in params:
+            params['osname'] = self.os_name
         # Need to flatten repos
         self._copyexternals(params)
         self.jsonfilename = os.path.join(self.workdir, os.path.basename(self.tree_file))
