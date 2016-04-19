@@ -1,6 +1,7 @@
 # We're just using a "stubbed out" Travis right now so we can
 # use Homu <https://github.com/barosl/homu> to auto-squash
 # etc.
+# (Stub change for testing)
 language: c
 dist: trusty
 addons:
