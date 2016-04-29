@@ -26,6 +26,8 @@ import argparse
 import shutil
 import subprocess
 import distutils.spawn
+import gi
+gi.require_version('OSTree', '1.0')
 from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import ConfigParser
 import libvirt

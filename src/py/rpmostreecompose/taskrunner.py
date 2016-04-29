@@ -24,6 +24,8 @@ import argparse
 import stat
 import sys
 
+import gi
+gi.require_version('GSystem', '1.0')
 from gi.repository import GLib,Gio,GSystem  # pylint: disable=no-name-in-module
 
 from .versioneddir import VersionedDir
