@@ -471,7 +471,13 @@ class ImageFactoryTask(AbstractImageFactoryTask):
     def generateOVA(self, imagetype, fileext, image):
         log("Creating {0} image".format(imagetype))
         # Imgfac will ensure proper qemu type is used
-        target_image = self.builder.buildimagetype(imagetype, image.identifier)
+        imgopts = {}
+        imgopts['vsphere_product_name'] = self.vsphere_product_name
+        imgopts['vsphere_product_vendor_name'] = self.vsphere_product_vendor_name
+        imgopts['vsphere_product_version'] = self.vsphere_product_version
+        imgopts['vsphere_virtual_system_type'] = self.vsphere_virtual_system_type
+
+        target_image = self.builder.buildimagetype(imagetype, image.identifier, imgopts=imgopts)
         infile = target_image.data
         outfile = os.path.join(self.image_content_outputdir, '%s-%s.%s' % (self._name, imagetype, fileext))
         shutil.copyfile(infile, outfile)

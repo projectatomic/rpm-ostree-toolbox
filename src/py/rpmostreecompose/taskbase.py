@@ -57,7 +57,9 @@ class TaskBase(object):
               'lorax_exclude_packages',
               'lorax_include_packages',
               'local_overrides', 'http_proxy',
-              'selinux', 'configdir', 'docker_os_name'
+              'selinux', 'configdir', 'docker_os_name',
+              'vsphere_product_name', 'vsphere_product_vendor_name',
+              'vsphere_product_version', 'vsphere_virtual_system_type'
             ]
 
 
