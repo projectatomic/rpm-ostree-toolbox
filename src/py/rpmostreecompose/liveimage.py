@@ -163,6 +163,7 @@ def main(cmd):
     parser.add_argument('--diskimage', type=str, required=False, help='Path to and including existing RAW disk image')
     parser.add_argument('--skip-subtask', action='append', help='Skip a subtask (currently: docker-create)', default=[])
     parser.add_argument('-b', '--yum_baseurl', type=str, required=False, help='Full URL for the yum repository')
+    parser.add_argument('-s', '--screenshot_dir', type=str, required=False, help='Directory to store screenshots of failed installs')
 
     args = parser.parse_args()
     composer = CreateLiveTask(args, cmd, profile=args.profile)

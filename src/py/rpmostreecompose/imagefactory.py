@@ -198,6 +198,11 @@ class AbstractImageFactoryTask(ImageTaskBase):
 
         self.ozoverrides = {}
 
+        # Screenshot_dir
+        if 'screenshot_dir' in self.args and self.args.screenshot_dir is not None:
+            self.addozoverride("paths", "screenshot_dir", self.args.screenshot_dir)
+
+
     def _ensure_httpd(self):
         """If we're using a local (on disk) OSTree repository, start a
         temporary http server for it.
@@ -548,6 +553,7 @@ def main(cmd):
     parser.add_argument('-k', '--kickstart', type=str, required=False, default=None, help='Path to kickstart') 
     parser.add_argument('--vkickstart', type=str, required=False, help='Path to vagrant kickstart') 
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
+    parser.add_argument('-s', '--screenshot_dir', type=str, required=False, help='Directory to store screenshots of failed installs')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
     args = parser.parse_args()
      
