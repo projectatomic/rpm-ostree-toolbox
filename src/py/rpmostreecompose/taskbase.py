@@ -50,7 +50,7 @@ def _merge_lists(x, y):
 
 class TaskBase(object):
     ATTRS = [ 'workdir', 'rpmostree_cache_dir', 'pkgdatadir',
-              'os_name', 'os_pretty_name', 'ostree_repo',
+              'os_name', 'ostree_remote', 'os_pretty_name', 'ostree_repo',
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos',
               'is_final',
@@ -69,6 +69,7 @@ class TaskBase(object):
         self.rpmostree_cache_dir = None
         self.pkgdatadir = None
         self.os_name = None
+        self.ostree_remote = None
         self.os_pretty_name = None
         self.tree_name = None
         self.tree_file = None
@@ -148,6 +149,8 @@ class TaskBase(object):
             self.ostree_repo = os.environ.get('OSTREE_REPO')
         if not self.ostree_repo:
             self.ostree_repo = self.outputdir + '/repo'
+        if not self.ostree_remote:
+            self.ostree_remote = self.os_name
         release = self.release
         # Check for configdir in attrs, else fallback to dir holding config
         if self.configdir is None:

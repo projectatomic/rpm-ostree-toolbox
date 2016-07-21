@@ -154,6 +154,7 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         substitutions = {'OSTREE_REF':  self.ref,
                          'OSTREE_OSNAME':  self.os_name,
+                         'OSTREE_REMOTE':  self.ostree_remote,
                          'OS_PRETTY': self.os_pretty_name,
                          'OS_VER': self.release,
                          'OS_VER': self.release,
