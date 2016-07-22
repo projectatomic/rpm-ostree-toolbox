@@ -328,6 +328,8 @@ class AbstractImageFactoryTask(ImageTaskBase):
         with open(flattened_ks) as f:
             for line in f:
                 for subname, subval in substitutions.iteritems():
+                    if subval is None:
+                        continue
                     line = line.replace('@%s@' % (subname, ), subval)
 
                 # By default, we replace the --url with the local repo

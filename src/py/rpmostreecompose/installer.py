@@ -162,6 +162,8 @@ CMD ["/bin/sh", "/root/lorax.sh"]
                          }
 
         for subname, subval in substitutions.iteritems():
+            if subval is None:
+                continue
             lorax_tmpl = lorax_tmpl.replace('@%s@' % (subname, ), subval)
 
         self.dumpTempMeta(os.path.join(self.workdir, "lorax.tmpl"), lorax_tmpl)
