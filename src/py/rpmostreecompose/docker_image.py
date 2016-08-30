@@ -91,6 +91,12 @@ def main(cmd):
         if 'langs' in args.minimize:
             ensure_unlinked(instroot + '/usr/lib/locale/locale-archive')
 
+        # Just allow use of dnf-as-yum since renaming it all of the
+        # Dockerfiles is pointless and annoying.
+        if (os.path.exists(instroot + '/usr/bin/dnf') and
+            not os.path.exists(instroot + '/usr/bin/yum')):
+            os.symlink('dnf', instroot + '/usr/bin/yum')
+
         varcache = instroot + '/var/cache'
         for name in ['/tmp', '/var/cache', '/run']:
             clean_dir_contents(instroot + name)
