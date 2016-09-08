@@ -56,6 +56,7 @@ class TaskBase(object):
               'is_final',
               'lorax_exclude_packages',
               'lorax_include_packages',
+              'lorax_rootfs_size',
               'local_overrides', 'http_proxy',
               'selinux', 'configdir', 'docker_os_name',
               'vsphere_product_name', 'vsphere_product_vendor_name',
@@ -81,6 +82,7 @@ class TaskBase(object):
         self.is_final = None
         self.lorax_exclude_packages = None
         self.lorax_include_packages = None
+        self.lorax_rootfs_size = None
         self.local_overrides = None
         self.http_proxy = None
         self.selinux = None

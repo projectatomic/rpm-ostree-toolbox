@@ -65,6 +65,8 @@ class InstallerTask(ImageTaskBase):
         os_v = self.release
         lorax_cmd = ['lorax', '--nomacboot', '--add-template=/root/lorax.tmpl',
                      '-p', self.os_pretty_name, '-v', os_v, '-r', os_v]
+        if self.lorax_rootfs_size is not None:
+            lorax_cmd.extend(['--rootfs-size', self.lorax_rootfs_size])
         isolabel = "{0}-{1}-{2}".format(self.os_pretty_name, os_v, self.arch)
         if len(isolabel) > 32:
             isolabel = isolabel[:32].strip()
