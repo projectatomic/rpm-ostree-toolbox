@@ -13,5 +13,5 @@ runcmd ostree --repo=${root}/install/ostree/ pull --mirror ostree-mirror @OSTREE
 
 append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=@OSTREE_OSNAME@ --remote=@OSTREE_REMOTE@ --url=file:///install/ostree --ref=@OSTREE_REF@\n"
 append usr/share/anaconda/interactive-defaults.ks "services --disabled cloud-init,cloud-config,cloud-final,cloud-init-local\n"
-append usr/share/anaconda/interactive-defaults.ks "%post --erroronfail\ncp /etc/skel/.bash* /var/roothome\nfn=/etc/ostree/remotes.d/@OSTREE_REMOTE@.conf; if test -f "<%text>${fn}</%text>" && grep -q -e '^url=file:///install/ostree' "<%text>${fn}</%text>"$; then rm "<%text>${fn}</%text>"; fi\n%end\n"
+append usr/share/anaconda/interactive-defaults.ks "%post --erroronfail\ncp /etc/skel/.bash* /var/roothome\nfn=/etc/ostree/remotes.d/@OSTREE_REMOTE@.conf; if test -f "<%text>${fn}</%text>" && grep -q -e '^url=file:///install/ostree' "<%text>${fn}</%text>"; then rm "<%text>${fn}</%text>"; fi\n%end\n"
 
