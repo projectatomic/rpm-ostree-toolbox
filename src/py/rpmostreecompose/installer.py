@@ -54,6 +54,24 @@ class InstallerTask(ImageTaskBase):
         docker_image_basename = self.buildDockerWorkerBaseImage('lorax', ['lorax', 'rpm-ostree', 'ostree'])
 
         lorax_repos = []
+        # This is hacky since we need to support CentOS 7 lorax which only knows
+        # -s/-m and not --repo
+        if self.lorax_inherit_repos is not None:
+            repoids,repos = self.getrepos(self.jsonfilename)
+            baseurls = {}
+            for repoid in repoids:
+                with open('{}/{}.repo'.format(self.configdir, repoid)) as f:
+                    baseurl = None
+                    for line in f:
+                        if line.startswith('baseurl='):
+                            baseurl = line[len('baseurl='):].strip()
+                            break
+                    if baseurl is None:
+                        fail_msg("Didn't find baseurl= in {}".format(repoid))
+                    baseurls[repoid] = baseurl
+            for repoid,baseurl in baseurls.iteritems():
+                lorax_repos.extend(['-s', baseurl])
+
         if self.lorax_additional_repos:
             if self.yum_baseurl not in self.lorax_additional_repos:
                 self.lorax_additional_repos += ", {0}".format(self.yum_baseurl)

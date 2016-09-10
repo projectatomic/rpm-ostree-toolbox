@@ -54,6 +54,7 @@ class TaskBase(object):
               'tree_name', 'tree_file', 'arch', 'release', 'ref',
               'yum_baseurl', 'lorax_additional_repos',
               'is_final',
+              'lorax_inherit_repos',
               'lorax_exclude_packages',
               'lorax_include_packages',
               'lorax_rootfs_size',
@@ -80,6 +81,7 @@ class TaskBase(object):
         self.yum_baseurl = None
         self.lorax_additional_repos = None
         self.is_final = None
+        self.lorax_inherit_repos = None
         self.lorax_exclude_packages = None
         self.lorax_include_packages = None
         self.lorax_rootfs_size = None
