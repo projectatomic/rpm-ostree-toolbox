@@ -9,19 +9,12 @@ EOF
 cat > /etc/yum.repos.d/jenkins.repo <<EOF
 [jenkins]
 name=Jenkins
-baseurl=http://pkg.jenkins.io/redhat
+baseurl=https://pkg.jenkins.io/redhat
 gpgcheck=1
 EOF
-yum -y install nginx \
+rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key
+yum -y install nginx supervisor \
     rpm-ostree-toolbox rpm-ostree ostree \
-    jenkins
-
-cd /srv
-ostree --repo=repo
-git clone https://github.com/CentOS/sig-atomic-buildscripts
-cat > Makefile <<EOF
-tree:
-	
-EOF
+    jenkins java
 
 

@@ -1,5 +1,4 @@
 FROM centos:7
-VOLUME /srv
 ENV container docker
-ENTRYPOINT ["/usr/bin/containerinit"]
-RUN build-base.sh
+COPY build-base.sh /root
+RUN /root/build-base.sh && rm -f /root/build-base.sh

@@ -1,5 +1,8 @@
 FROM projectatomic/custom-atomic-imager-base
-VOLUME /srv
 ENV container docker
-ENTRYPOINT ["/usr/bin/containerinit"]
-RUN build.sh
+VOLUME ["/srv"]
+EXPOSE 8080
+ADD supervisord.conf /etc/supervisord.conf
+ADD jenkins.sh /usr/bin/jenkins-run
+ADD jenkins-print-password.sh /usr/bin/jenkins-print-password
+CMD ["supervisord", "-n"]
