@@ -403,7 +403,8 @@ class ImageFactoryTask(AbstractImageFactoryTask):
             # Copy the qcow2 file to the outputdir, and gzip it
             outputname = os.path.join(self.image_content_outputdir, '%s.qcow2' % (self.os_nr))
             shutil.copyfile(image.data, outputname)
-            run_sync(['gzip', outputname])
+            if not self.args.compression:
+                run_sync(['gzip', outputname])
             log("Created: {0}".format(outputname))
 
             if 'raw' in imageouttypes:
@@ -441,7 +442,8 @@ class ImageFactoryTask(AbstractImageFactoryTask):
                 log("Created: {0}".format(outputname))
 
                 # Zip if more captabile with windows
-                run_sync(['zip', '-m', outputname + ".zip", outputname])
+                if not self.args.compression:
+                    run_sync(['zip', '-m', outputname + ".zip", outputname])
 
             for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
                 self.generateOVA(imagetype, "ova", image)
@@ -553,7 +555,8 @@ def main(cmd):
     parser.add_argument('--tdl', type=str, required=False, help='TDL file')
     parser.add_argument('--virtnetwork', default=None, type=str, required=False, help='Optional name of libvirt network')
     parser.add_argument('-k', '--kickstart', type=str, required=False, default=None, help='Path to kickstart') 
-    parser.add_argument('--vkickstart', type=str, required=False, help='Path to vagrant kickstart') 
+    parser.add_argument('--vkickstart', type=str, required=False, help='Path to vagrant kickstart')
+    parser.add_argument('--no-compression', default=False, action='store_true', dest='compression', required=False, help='Do not compress final images.')
     parser.add_argument('-p', '--profile', type=str, default='DEFAULT', help='Profile to compose (references a stanza in the config file)')
     parser.add_argument('-s', '--screenshot_dir', type=str, required=False, help='Directory to store screenshots of failed installs')
     parser.add_argument('-v', '--verbose', action='store_true', help='verbose output')
