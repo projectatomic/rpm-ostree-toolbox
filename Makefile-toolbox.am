@@ -54,7 +54,6 @@ pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/taskrunner.py \
 	src/py/rpmostreecompose/version.py \
 	src/py/rpmostreecompose/liveimage.py \
-	src/py/rpmostreecompose/pyazure.py \
 	$(NULL)
 
 install-varlib-hook:

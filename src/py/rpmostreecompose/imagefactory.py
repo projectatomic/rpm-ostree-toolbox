@@ -32,7 +32,6 @@ from gi.repository import Gio, OSTree, GLib  # pylint: disable=no-name-in-module
 import ConfigParser
 import libvirt
 import xml.etree.ElementTree as ET
-from . import pyazure
 
 from imgfac.PersistentImageManager import PersistentImageManager
 
@@ -434,16 +433,26 @@ class ImageFactoryTask(AbstractImageFactoryTask):
                 rawcmd = ['qemu-img', 'convert', '-f', 'qcow2', '-O', 'raw', image.data, temp_raw]
                 run_sync(rawcmd)
 
-                with open(outputname, 'w') as outfile:
-                     with open(temp_raw) as infile:
-                         pyazure.do_vhd_convert(infile, outfile)
+                mb = 1024 * 1024
+                # Convert qcow2 to raw
+                qemu_info_cmd = ['qemu-img', 'info', '-f', 'raw', '--output', 'json', temp_raw]
+                # Get info from raw image
+                qemu_info = json.loads(subprocess.check_output(qemu_info_cmd))
+                # Compute size dictated by azure
+                azure_size = ((qemu_info['virtual-size']/mb + 1) * mb)
+                # Resize raw image
+                run_sync(['qemu-img', 'resize', '-f', 'raw', temp_raw, str(azure_size)])
+
+                # Create azure vhd
+                run_sync(['qemu-img', 'convert', '-f', 'raw', '-o', 'subformat=fixed,force_size', '-O', 'vpc', temp_raw, outputname])
+                # Remove raw image
                 os.remove(temp_raw)
 
                 log("Created: {0}".format(outputname))
 
                 # Zip if more captabile with windows
                 if not self.args.compression:
-                    run_sync(['zip', '-m', outputname + ".zip", outputname])
+                    run_sync(['zip', '-j', '-m', outputname + ".zip", outputname])
 
             for imagetype in self.returnCommon(imageouttypes, ['rhevm','vsphere']):
                 self.generateOVA(imagetype, "ova", image)
