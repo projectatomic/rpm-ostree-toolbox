@@ -1,15 +1,31 @@
 rpm-ostree-toolbox
 ==================
 
-This is a higher level app on top of the core `rpm-ostree` tool.  It
-contains a variety of tools and scripts for making disk images,
-installer images, and ostree trees.
+This is a higher level app on top of a few tools:
 
-The rpm-ostree-toolbox should be called with one of three subcommands:
+ - `rpm-ostree`: https://github.com/projectatomic/rpm-ostree
+ - `lorax`: https://github.com/rhinstaller/lorax/
+ - `imagefactory`: https://github.com/redhat-imaging/imagefactory
+ 
+It is intended to streamline things for local development on
+a workstation to build trees, installers, and cloud images.
+It is also used in CentOS to build the installer.
 
-* treecompose
-* installer
-* imagefactory
+However, it is now deprecated in favor of calling the above tools directly. The
+most common developer use case is to make custom ostree commits, and invoking
+`rpm-ostree compose tree` directly is better for this.
+
+For automation, there is https://pagure.io/pungi which increasingly knows how to
+operate with OSTree-based systems too. This is used in Fedora today, where the
+OSTree-embedding logic for the installer is instead in
+https://pagure.io/fedora-lorax-templates
+
+For cloud images, we would like to instead improve ImageFactory
+to streamline the "Anaconda kickstart" case.
+
+You can also of course define Jenkins jobs or whatever that
+call the above tools, as the CentOS Atomic Host jobs do:
+https://github.com/CentOS/sig-atomic-buildscripts/tree/master/centos-ci
 
 Getting started
 ---------------
