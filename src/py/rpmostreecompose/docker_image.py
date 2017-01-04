@@ -28,7 +28,7 @@ import oz.GuestFactory
 import tarfile
 import shutil
 
-from .utils import fail_msg, run_sync, TrivialHTTP, log
+from .utils import fail_msg, run_sync, log
 
 from gi.repository import GLib # pylint: disable=no-name-in-module
 

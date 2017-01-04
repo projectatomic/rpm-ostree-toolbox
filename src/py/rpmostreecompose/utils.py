@@ -19,6 +19,11 @@
 
 import sys
 import subprocess
+import posixpath
+import urllib
+from SimpleHTTPServer import SimpleHTTPRequestHandler
+import SocketServer
+import threading
 import os
 import signal
 import ctypes
@@ -41,45 +46,43 @@ def log(msg):
     sys.stdout.write('\n')
     sys.stdout.flush()
 
-class TrivialHTTP(object):
-    """ This class is used to control ostree's trivial-httpd which is used
+class ThreadedTCPServer(SocketServer.ThreadingMixIn, SocketServer.TCPServer):
+    pass
+
+class RequestHandler(SimpleHTTPRequestHandler):
+    def translate_path(self, path):
+        # Copy of python's, but using server._cwd instead of os.getcwd()
+        # abandon query parameters
+        path = path.split('?',1)[0]
+        path = path.split('#',1)[0]
+        # Don't forget explicit trailing slash when normalizing. Issue17324
+        trailing_slash = path.rstrip().endswith('/')
+        path = posixpath.normpath(urllib.unquote(path))
+        words = path.split('/')
+        words = filter(None, words)
+        path = self.server._cwd  # HACKED HERE
+        for word in words:
+            if os.path.dirname(word) or word in (os.curdir, os.pardir):
+                # Ignore components that are not a simple file/directory name
+                continue
+            path = os.path.join(path, word)
+        if trailing_slash:
+            path += '/'
+        return path
+
+class TemporaryWebserver(object):
+    """ This class is used to control a temporary webserver which is used
     by the installer and imagefactory rpm-ostree-toolbox subcommands to get
     content from the from the host to the builds
     """
 
-    def __init__(self):
-        self.f = None
-        self.libc = ctypes.CDLL('libc.so.6')
-        self.PR_SET_PDEATHSIG = 1
-        self.SIGINT = signal.SIGINT
-        self.SIGTERM = signal.SIGTERM
-
-    def set_death_signal(self, signal):
-        self.libc.prctl(self.PR_SET_PDEATHSIG, signal)
-    
-    def set_death_signal_int(self):
-        self.set_death_signal(self.SIGINT)
-
-    # trivial-httpd does not close its output pipe so we use
-    # monitor to deal with it.  If ostree is fixed, this can
-    # likely be removed
-
-    def monitor(self):
-        lines = iter(self.f.stdout.readline, "")
-
-        for line in lines:
-            if int(line) > 0:
-                self.http_port = int(line)
-                break
-
     def start(self, repopath):
-        self.f = subprocess.Popen(['ostree', 'trivial-httpd', '--autoexit', '-p', "-"],
-                                  cwd=repopath, stdout=subprocess.PIPE, preexec_fn=self.set_death_signal_int)
-        self.http_pid = self.f.pid
-        while True:
-            if self.f is not None:
-                break
-        self.monitor()
+        self.httpd = SocketServer.ThreadingTCPServer(("", 0), RequestHandler)
+        self.httpd._cwd = repopath
+        server_thread = threading.Thread(target=self.httpd.serve_forever)
+        server_thread.daemon = True
+        server_thread.start()
+        return self.httpd.server_address[1]
 
     def stop(self):
-        os.kill(self.http_pid, signal.SIGQUIT)
+        del self.httpd

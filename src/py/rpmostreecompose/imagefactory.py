@@ -43,7 +43,7 @@ import logging
 
 from .taskbase import ImageTaskBase
 
-from .utils import run_sync, fail_msg, TrivialHTTP, log
+from .utils import run_sync, fail_msg, TemporaryWebserver, log
 
 
 class ImgBuilder(object):
@@ -174,7 +174,7 @@ class AbstractImageFactoryTask(ImageTaskBase):
     def __init__(self, *args, **kwargs):
         ImageTaskBase.__init__(self, *args, **kwargs)
         self.httpd_port = None
-        self._trivial_httpd = None
+        self._tmpweb = None
 
         # TDL
         if 'tdl' in self.args and self.args.tdl is not None:
@@ -208,18 +208,16 @@ class AbstractImageFactoryTask(ImageTaskBase):
 
         """
         if not self.ostree_repo_is_remote: 
-            # Start trivial-httpd
-            self._trivial_httpd = TrivialHTTP()
-            self._trivial_httpd.start(self.ostree_repo)
-            self.httpd_port = str(self._trivial_httpd.http_port)
-            log("trivial httpd port=%s, pid=%s" % (self.httpd_port, self._trivial_httpd.http_pid))
+            self._tmpweb = TemporaryWebserver()
+            self.httpd_port = self._tmpweb.start(self.ostree_repo)
+            log("tmp httpd port={}".format(self.httpd_port))
         else:
             self.httpd_port = self.ostree_port
 
     def _destroy_httpd(self):
-        if self._trivial_httpd is not None:
-            self._trivial_httpd.stop()
-            self._trivial_httpd = None
+        if self._tmpweb is not None:
+            self._tmpweb.stop()
+            self._tmpweb = None
 
     def addozoverride(self, cfgsec, key, value):
         """
