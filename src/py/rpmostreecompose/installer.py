@@ -27,7 +27,7 @@ import tarfile
 import shutil
 
 from .taskbase import ImageTaskBase
-from .utils import fail_msg, run_sync, TrivialHTTP, log
+from .utils import fail_msg, run_sync, TemporaryWebserver, log
 from .imagefactory import AbstractImageFactoryTask
 from .imagefactory import ImgFacBuilder
 from imgfac.BuildDispatcher import BuildDispatcher
@@ -156,13 +156,11 @@ CMD ["/bin/sh", "/root/lorax.sh"]
 
         port_file_path = self.workdir + '/repo-port'
         if not self.ostree_repo_is_remote:
-            # Start trivial-httpd
-            trivhttp = TrivialHTTP()
-            trivhttp.start(self.ostree_repo)
-            httpd_port = str(trivhttp.http_port)
+            tmpweb = TemporaryWebserver()
+            httpd_port = tmpweb.start(self.ostree_repo)
             httpd_url = '127.0.0.1'
-            log("trivial httpd serving %s on port=%s, pid=%s" % (self.ostree_repo, httpd_port, trivhttp.http_pid))
             ostree_url = "http://{0}:{1}".format(httpd_url, httpd_port)
+            log("tmp httpd serving {} at {}".format(self.ostree_repo, ostree_url))
         else:
             httpd_port = self.httpd_port
             httpd_url = self.httpd_host
