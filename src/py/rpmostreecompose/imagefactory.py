@@ -260,7 +260,7 @@ class AbstractImageFactoryTask(ImageTaskBase):
         substitutions = { 'OSTREE_REF':  self.ref,
                           'OSTREE_OSNAME':  self.os_name}
 
-        substitutions['OSTREE_PORT'] = self.httpd_port
+        substitutions['OSTREE_PORT'] = str(self.httpd_port)
 
         if not self.ostree_repo_is_remote:
             host_ip = getDefaultIP(hostnet=self.virtnetwork)
