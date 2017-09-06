@@ -16,7 +16,6 @@ BuildRequires: autoconf automake libtool
 BuildRequires: gtk-doc
 BuildRequires: gnome-common
 BuildRequires: pkgconfig(ostree-1)
-BuildRequires: pkgconfig(libgsystem)
 BuildRequires: pkgconfig(json-glib-1.0)
 
 %define imagefactory_version 1.1.6-2
