@@ -51,7 +51,6 @@ pytoolboxpylib_PYTHON = \
 	src/py/rpmostreecompose/docker_image.py \
 	src/py/rpmostreecompose/installer.py \
 	src/py/rpmostreecompose/versioneddir.py \
-	src/py/rpmostreecompose/taskrunner.py \
 	src/py/rpmostreecompose/version.py \
 	src/py/rpmostreecompose/liveimage.py \
 	$(NULL)
