@@ -3,6 +3,7 @@
 ##  2) Disable cloud-init (since we don't use it in the Anaconda path)
 ##     but the package enables itself by default
 ##  3) Work around https://bugzilla.redhat.com/show_bug.cgi?id=1193590
+##  4) Tell anaconda to leave the firewall set up as it was in the ostree
 
 <%page args='root'/>
 mkdir install/ostree
@@ -12,6 +13,7 @@ runcmd ostree --repo=${root}/install/ostree/ pull --mirror ostree-mirror @OSTREE
 
 
 append usr/share/anaconda/interactive-defaults.ks "ostreesetup --nogpg --osname=@OSTREE_OSNAME@ --remote=@OSTREE_REMOTE@ --url=file:///install/ostree --ref=@OSTREE_REF@\n"
+append usr/share/anaconda/interactive-defaults.ks "firewall --use-system-defaults"
 append usr/share/anaconda/interactive-defaults.ks "services --disabled cloud-init,cloud-config,cloud-final,cloud-init-local\n"
 append usr/share/anaconda/interactive-defaults.ks "%post --erroronfail\ncp /etc/skel/.bash* /var/roothome\nfn=/etc/ostree/remotes.d/@OSTREE_REMOTE@.conf; if test -f "<%text>${fn}</%text>" && grep -q -e '^url=file:///install/ostree' "<%text>${fn}</%text>"; then rm "<%text>${fn}</%text>"; fi\n%end\n"
 
